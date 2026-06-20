@@ -1,10 +1,12 @@
 {
   "name": "opencode-moa-fusion",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "type": "module",
   "main": "dist/index.js",
   "files": [
-    "dist"
+    "dist",
+    "commands",
+    "install.sh"
   ],
   "scripts": {
     "test": "bun test",

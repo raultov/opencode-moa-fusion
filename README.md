@@ -64,6 +64,44 @@ If you set `workers` in the plugin options (see [Registration](#registration)), 
 
 > **User:** "Use the moa_fusion tool to explain BGP in one paragraph."
 
+### `/moa` Slash Command (recommended)
+
+To avoid asking the agent to "use the moa_fusion tool" on every prompt, install
+the `/moa` slash command. Once installed, you can invoke the mixture-of-agents
+directly from the OpenCode prompt:
+
+> **User:** `/moa explain BGP in one paragraph`
+
+The command instructs the agent to fan out via `moa_fusion` and synthesize the
+answer, with no need to mention the tool explicitly.
+
+**One-line installer (recommended):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash
+```
+
+The installer shows an interactive menu and asks where to install:
+
+1. **Local** — current project only (`./.opencode/command/moa.md`)
+2. **Global** — current user, all projects (`~/.config/opencode/command/moa.md`)
+3. **ESC / q** — cancel
+
+**Non-interactive flags:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash -s -- --global
+curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash -s -- --local
+```
+
+**Manual installation:** copy [`commands/moa.md`](commands/moa.md) into
+`~/.config/opencode/command/moa.md` (global) or `./.opencode/command/moa.md`
+(project-local).
+
+> **Note:** the `/moa` command only triggers the agent to call `moa_fusion`. The
+> plugin itself must still be registered and loaded via your `opencode.json`
+> (see [Registration](#registration)).
+
 **Requirements for invocation:**
 - The primary agent's model must support tool calling. Models without function-calling capability will never invoke `moa_fusion`, no matter how explicit the prompt.
 - The plugin must actually be loaded — verify `dist/index.js` exists at the path declared in `opencode.json` (run `bun run build` first). OpenCode silently skips plugins whose entry file is missing.
