@@ -19,6 +19,19 @@ npm install -g opencode-moa-fusion
 bun add -g opencode-moa-fusion
 ```
 
+### Installation issues in corporate environments
+
+If you configure the plugin but it fails to load or gives an error, it may be caused by an OpenCode issue where the package download fails silently (no error logged) instead of surfacing the underlying problem. This is commonly triggered by:
+
+- **Corporate npm registry proxies** (Nexus, Artifactory, Verdaccio, JFrog — any `registry` configured in `~/.npmrc`) that enforce allowlists, security scans, or maturity policies on newly published packages.
+- **Newly published versions** that haven't been cached or approved by the corporate proxy yet.
+
+**Diagnostic:** check `~/.cache/opencode/packages/opencode-moa-fusion@<version>/`. If the directory is empty or missing files despite a successful OpenCode startup, the proxy silently blocked the download.
+
+**Workaround:** temporarily comment out the `registry` line in `~/.npmrc`, restart OpenCode so it downloads the package from the public npm registry, then restore the corporate registry setting. The cached package in `~/.cache/opencode/packages/` will continue to work.
+
+**Long-term fix:** ask your registry administrator to add `opencode-moa-fusion` to the package allowlist.
+
 ## Registration
 
 Register the plugin in your OpenCode configuration. This can be done globally in `~/.config/opencode/opencode.json` or locally in your project's `opencode.json`. Notice how you just use the package name now.
