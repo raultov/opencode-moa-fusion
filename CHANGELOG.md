@@ -1,0 +1,73 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.2.2] - 2025-06-20
+
+### Fixed
+
+- Remove `npm install` step from the interactive installer. OpenCode resolves
+  plugins from npm automatically and caches them under
+  `~/.cache/opencode/packages/`; running `npm install` in the user's project
+  polluted its `node_modules` and triggered peer-dependency conflicts (e.g.
+  `react@18` vs `@opentui/keymap`'s optional `react@>=19` range).
+
+## [1.2.1] - 2025-06-20
+
+### Fixed
+
+- Pass `--legacy-peer-deps` to `npm install` in the installer to bypass the
+  optional `react@>=19` peer conflict from `@opentui/keymap`. (Superseded by
+  1.2.2 which removes the `npm install` step entirely.)
+
+## [1.2.0] - 2025-06-20
+
+### Added
+
+- Interactive one-line curl installer (`install.sh`) with scope selection
+  (local/global), automatic version detection from npm, and interactive
+  multi-select model picker.
+
+## [1.1.0] - 2025-06-19
+
+### Added
+
+- `/moa` slash command file for OpenCode.
+- One-line curl installer script.
+
+## [1.0.2] - 2025-06-19
+
+### Fixed
+
+- Add `main` and `files` fields to `package.json` so the compiled plugin is
+  correctly published to npm.
+
+### Changed
+
+- Update installation instructions for npm package.
+- Add troubleshooting steps for enterprise proxies.
+
+## [1.0.1] - 2025-06-19
+
+### Added
+
+- GitHub Actions workflows for CI and npm publish.
+
+## [1.0.0] - 2025-06-19
+
+### Added
+
+- Initial release of `opencode-moa-fusion`.
+- Mixture-of-Agents plugin for OpenCode: fans out prompts to multiple worker
+  models in parallel and synthesizes a unified answer.
+
+[1.2.2]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/raultov/opencode-moa-fusion/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/raultov/opencode-moa-fusion/compare/v1.0.2...v1.1.0
+[1.0.2]: https://github.com/raultov/opencode-moa-fusion/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/raultov/opencode-moa-fusion/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/raultov/opencode-moa-fusion/releases/tag/v1.0.0

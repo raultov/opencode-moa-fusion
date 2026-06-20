@@ -264,20 +264,10 @@ async function main() {
     }
 
     const isGlobal = scope === "global";
-    
-    // Install NPM package
-    console.log(`\n${C.bold}Installing opencode-moa-fusion@${version} via npm...${C.reset}`);
-    const installArgs = ["install", "--legacy-peer-deps", "opencode-moa-fusion@" + version];
-    if (isGlobal) installArgs.splice(1, 0, "-g");
-    
-    try {
-        await runCommand("npm", installArgs);
-    } catch (e) {
-        console.error(`${C.yellow}npm install failed, aborting.${C.reset}`);
-        process.exit(1);
-    }
 
     // Configure opencode.json
+    // Note: OpenCode resolves plugins from npm automatically and caches them
+    // under ~/.cache/opencode/packages/. No local npm install is needed.
     let configPath = "";
     let cmdDir = "";
 
