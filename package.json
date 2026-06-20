@@ -2,6 +2,10 @@
   "name": "opencode-moa-fusion",
   "version": "1.0.1",
   "type": "module",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc",
