@@ -9,28 +9,25 @@ A Mixture-of-Agents (MoA) plugin for [OpenCode](https://github.com/opencode-ai/o
 - **No judge model**: The calling agent synthesizes the final answer — no extra model call needed
 - **Sessions persist**: Worker sessions are NOT deleted after completion, so you can review their reasoning
 
-## Installation & Build
+## Installation
 
-Ensure you have [Bun](https://bun.sh) and the `@opencode-ai/sdk` and `@opencode-ai/plugin` packages.
+You can install the plugin globally via `npm` or `bun`:
 
 ```bash
-git clone https://github.com/your-username/opencode-moa-fusion.git
-cd opencode-moa-fusion
-bun install
-bun run build
+npm install -g opencode-moa-fusion
+# or
+bun add -g opencode-moa-fusion
 ```
-
-This will produce the compiled plugin in `dist/index.js`.
 
 ## Registration
 
-Register the plugin in your OpenCode configuration. This can be done globally in `~/.config/opencode/opencode.json` or locally in your project's `opencode.json`.
+Register the plugin in your OpenCode configuration. This can be done globally in `~/.config/opencode/opencode.json` or locally in your project's `opencode.json`. Notice how you just use the package name now.
 
 ```json
 {
   "plugin": [
     [
-      "/path/to/opencode-moa-fusion/dist/index.js",
+      "opencode-moa-fusion",
       {
         "workers": [
           "openai/gpt-4o-mini",
