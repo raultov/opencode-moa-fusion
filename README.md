@@ -50,7 +50,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 {
   "plugin": [
     [
-      "opencode-moa-fusion@1.2.0",
+      "opencode-moa-fusion@1.2.1",
       {
         "workers": [
           "openai/gpt-4o-mini",
@@ -66,7 +66,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 
 ### ⚠️ Always pin a specific version — do not use `@latest`
 
-**Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.0`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
+**Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.1`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
 
 1. **Security / supply chain.** Pinning guarantees that the exact code you audited is what runs locally. Plugins execute in your OpenCode process with full filesystem and network access — a compromised future release published to npm would be picked up silently by `@latest` resolvers. A pinned version protects you from upstream tampering (and from accidental breaking changes during a normal release).
 2. **OpenCode's plugin cache does not revalidate `@latest`.** OpenCode caches plugins under `~/.cache/opencode/packages/<pkg>@<spec>/`, keyed by the literal spec string. With `@latest` the cache directory is named `opencode-moa-fusion@latest`, and OpenCode reuses it forever — it never re-checks npm to see if a newer release exists. The result: when a new version is published, your install keeps running the old (possibly broken) cached copy. To pick up the new version you'd have to manually delete `~/.cache/opencode/packages/opencode-moa-fusion@latest/` before every restart, which defeats the point.

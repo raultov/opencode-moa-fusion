@@ -267,7 +267,7 @@ async function main() {
     
     // Install NPM package
     console.log(`\n${C.bold}Installing opencode-moa-fusion@${version} via npm...${C.reset}`);
-    const installArgs = ["install", "opencode-moa-fusion@" + version];
+    const installArgs = ["install", "--legacy-peer-deps", "opencode-moa-fusion@" + version];
     if (isGlobal) installArgs.splice(1, 0, "-g");
     
     try {
