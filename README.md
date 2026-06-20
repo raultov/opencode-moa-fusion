@@ -1,17 +1,27 @@
 # `opencode-moa-fusion`
 
-A Mixture-of-Agents (MoA) plugin for [OpenCode](https://github.com/opencode-ai/opencode). This tool fans out a single prompt to $N$ independent worker subagents in parallel, each running as a **child session** that remains navigable in the TUI. When all workers complete, it returns their outputs labelled — the **calling agent** then synthesizes a unified answer using its own model.
+A Mixture-of-Agents (MoA) plugin for [OpenCode](https://github.com/opencode-ai/opencode). This tool fans out a single prompt to $N$ independent worker subagents in parallel. When all workers complete, it returns their outputs labelled — the **calling agent** then synthesizes a unified answer using its own model.
+
+> _Note: worker subagents run as background sessions and are not click-through navigable from the TUI like the builtin `task` tool. You can still inspect them out-of-band (debug mode, on-disk session logs, or the SDK)._
 
 ## Key Features
 
 - **Parallel workers**: Fan out to N models simultaneously
-- **Navigable child sessions**: Each worker runs as a child session you can inspect with Ctrl+X (or equivalent TUI navigation)
+- **Background worker sessions**: Each worker runs as a child session in the background (not navigable from the TUI)
 - **No judge model**: The calling agent synthesizes the final answer — no extra model call needed
-- **Sessions persist**: Worker sessions are NOT deleted after completion, so you can review their reasoning
+- **Sessions persist**: Worker sessions are NOT deleted after completion, so you can still inspect them out-of-band (debug logs, on-disk session files, SDK)
 
 ## Installation
 
-You can install the plugin globally via `npm` or `bun`:
+**One-line installer (recommended):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash
+```
+
+The installer will interactively ask whether you want to install it for the current project (`./opencode.json`) or globally (`~/.config/opencode/opencode.json`). It will also automatically show you a menu to select the background worker models from your available OpenCode providers.
+
+Alternatively, you can install the plugin manually via `npm` or `bun`:
 
 ```bash
 npm install -g opencode-moa-fusion
@@ -34,13 +44,13 @@ If you configure the plugin but it fails to load or gives an error, it may be ca
 
 ## Registration
 
-Register the plugin in your OpenCode configuration. This can be done globally in `~/.config/opencode/opencode.json` or locally in your project's `opencode.json`. Notice how you just use the package name now.
+Register the plugin in your OpenCode configuration. This can be done globally in `~/.config/opencode/opencode.json` or locally in your project's `opencode.json`.
 
 ```json
 {
   "plugin": [
     [
-      "opencode-moa-fusion",
+      "opencode-moa-fusion@1.2.0",
       {
         "workers": [
           "openai/gpt-4o-mini",
@@ -53,6 +63,21 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 ```
 
 > **Note:** The `workers` specified in `opencode.json` act as defaults. The primary agent can override these at runtime by passing arguments to the tool.
+
+### ⚠️ Always pin a specific version — do not use `@latest`
+
+**Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.0`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
+
+1. **Security / supply chain.** Pinning guarantees that the exact code you audited is what runs locally. Plugins execute in your OpenCode process with full filesystem and network access — a compromised future release published to npm would be picked up silently by `@latest` resolvers. A pinned version protects you from upstream tampering (and from accidental breaking changes during a normal release).
+2. **OpenCode's plugin cache does not revalidate `@latest`.** OpenCode caches plugins under `~/.cache/opencode/packages/<pkg>@<spec>/`, keyed by the literal spec string. With `@latest` the cache directory is named `opencode-moa-fusion@latest`, and OpenCode reuses it forever — it never re-checks npm to see if a newer release exists. The result: when a new version is published, your install keeps running the old (possibly broken) cached copy. To pick up the new version you'd have to manually delete `~/.cache/opencode/packages/opencode-moa-fusion@latest/` before every restart, which defeats the point.
+
+If you ever do need to refresh a `@latest` install, run:
+
+```bash
+rm -rf ~/.cache/opencode/packages/opencode-moa-fusion@latest
+```
+
+then restart OpenCode. But the cleaner fix is to bump the pinned version in `opencode.json` whenever you want a new release.
 
 ## Usage
 
@@ -75,24 +100,7 @@ directly from the OpenCode prompt:
 The command instructs the agent to fan out via `moa_fusion` and synthesize the
 answer, with no need to mention the tool explicitly.
 
-**One-line installer (recommended):**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash
-```
-
-The installer shows an interactive menu and asks where to install:
-
-1. **Local** — current project only (`./.opencode/command/moa.md`)
-2. **Global** — current user, all projects (`~/.config/opencode/command/moa.md`)
-3. **ESC / q** — cancel
-
-**Non-interactive flags:**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash -s -- --global
-curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash -s -- --local
-```
+> **Note:** If you used the interactive one-line installer from the `Installation` section, the `/moa` command was already installed for you.
 
 **Manual installation:** copy [`commands/moa.md`](commands/moa.md) into
 `~/.config/opencode/command/moa.md` (global) or `./.opencode/command/moa.md`
@@ -113,7 +121,7 @@ The tool will:
 4. Return their outputs as labelled text
 5. The calling agent then synthesizes a unified answer
 
-**Navigating worker sessions**: While workers are running (or after they complete), you can inspect their reasoning in real-time. Because `moa_fusion` is a custom tool, OpenCode will not show the automatic "Press Ctrl+X" footer (which is hardcoded for the builtin `task` tool). Instead, simply **open your Session List** (via Command Palette `Ctrl+K` -> "Sessions", or your equivalent TUI shortcut) to see and switch to the active `moa:<modelID>` child sessions.
+**Inspecting worker sessions**: see the [disclaimer at the top of this README](#-important--worker-sessions-are-not-visually-navigable) — worker sessions are **not** click-through navigable in the TUI like the builtin `task` tool. They run in the background and can only be inspected out-of-band (debug/verbose mode, on-disk session logs, or the SDK).
 
 ### Tool Arguments
 
@@ -124,9 +132,9 @@ The tool will:
 
 ## Output Format
 
-The tool returns plain text (not JSON) with labelled worker outputs:
+When the workers complete, the tool returns the following text **back to the calling agent** (the user does not see this raw text directly):
 
-```
+```text
 Received N worker outputs for the prompt below. Synthesize a single unified
 answer in your next reply. Treat consensus across workers as authoritative;
 discard claims unique to one worker that no other corroborates. Do not
@@ -143,7 +151,7 @@ answer to the user.
 <worker output>
 ```
 
-The calling agent receives this text and should synthesize a unified answer in its next reply.
+Because the tool's output explicitly instructs the agent to synthesize a single answer, the user will only see the final, unified response generated by the main agent.
 
 ## Troubleshooting
 

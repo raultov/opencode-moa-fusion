@@ -1,9 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
-import { sleep } from "bun";
 import type { ToolContext, ToolDefinition } from "@opencode-ai/plugin";
 import type { OpencodeClient } from "@opencode-ai/sdk";
+import { sleep } from "bun";
 import { moaFusionTool } from "../src/tool.js";
-import { makeMockClient, type MockClient, type MockPromptData } from "./_fixtures/mockClient.js";
+import { type MockClient, type MockPromptData, makeMockClient } from "./_fixtures/mockClient.js";
 
 type ToolResult = Awaited<ReturnType<ToolDefinition["execute"]>>;
 type ObjectToolResult = { output: string; metadata: { partial: boolean } };
@@ -20,7 +20,10 @@ describe("tool [Component]", () => {
   };
 
   const getClientWithModels = (
-    onPrompt?: (sessionID: string, body: import("./_fixtures/mockClient.js").MockPromptBody) => Promise<MockPromptData> | Promise<never>,
+    onPrompt?: (
+      sessionID: string,
+      body: import("./_fixtures/mockClient.js").MockPromptBody,
+    ) => Promise<MockPromptData> | Promise<never>,
   ) => {
     return makeMockClient({
       onPrompt,
@@ -219,7 +222,15 @@ describe("tool [Component]", () => {
     it("Given importing default When invoked as Plugin Then returns Hooks with tool.moa_fusion", async () => {
       const plugin = (await import("../src/index.js")).default;
       const client: OpencodeClient = getClientWithModels();
-      const hooks = await plugin({ client, project: {} as never, directory: "/mock", worktree: "/mock", experimental_workspace: { register: () => {} }, serverUrl: new URL("http://localhost"), $: {} as never });
+      const hooks = await plugin({
+        client,
+        project: {} as never,
+        directory: "/mock",
+        worktree: "/mock",
+        experimental_workspace: { register: () => {} },
+        serverUrl: new URL("http://localhost"),
+        $: {} as never,
+      });
       expect(hooks).toBeDefined();
       expect(hooks.tool).toBeDefined();
       expect(hooks.tool?.moa_fusion).toBeDefined();

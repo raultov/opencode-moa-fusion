@@ -1,10 +1,4 @@
-import type {
-  AssistantMessage,
-  Config,
-  OpencodeClient,
-  Part,
-  Session,
-} from "@opencode-ai/sdk";
+import type { AssistantMessage, Config, OpencodeClient, Part, Session } from "@opencode-ai/sdk";
 
 export type MockPart = { type: "text"; text: string } | Part;
 export type MockPartArray = Array<MockPart>;
@@ -69,10 +63,7 @@ export type MockClient = OpencodeClient & {
   __script: {
     config: () => Promise<Config>;
     providers: () => Promise<MockProvidersResponse>;
-    onPrompt: (
-      sessionID: string,
-      body: MockPromptBody,
-    ) => Promise<MockPromptData> | Promise<never>;
+    onPrompt: (sessionID: string, body: MockPromptBody) => Promise<MockPromptData> | Promise<never>;
   };
 };
 
@@ -146,9 +137,7 @@ export function makeMockClient(script: Partial<MockClient["__script"]> = {}): Mo
           version: "0",
           time: { created: Date.now(), updated: Date.now() },
         };
-        return { data: session } as Awaited<
-          ReturnType<OpencodeClient["session"]["create"]>
-        >;
+        return { data: session } as Awaited<ReturnType<OpencodeClient["session"]["create"]>>;
       },
       prompt: async (args: PromptCallArgs) => {
         client.__spy.promptCalls.push(

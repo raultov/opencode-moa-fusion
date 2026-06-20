@@ -38,9 +38,9 @@ describe("callModel [Component]", () => {
       const promptBody = client.__spy.promptCalls[0].body;
       expect(promptBody.model).toEqual({ providerID: "openai", modelID: "gpt-4o-mini" });
       expect(promptBody.system).toBe("sys_prompt");
-      expect(promptBody.parts).toEqual(
-        [{ type: "text", text: wrapReadOnly("hello world") }] as Part[],
-      );
+      expect(promptBody.parts).toEqual([
+        { type: "text", text: wrapReadOnly("hello world") },
+      ] as Part[]);
       expect(promptBody.tools).toEqual({ moa_fusion: false });
 
       expect(client.__spy.deleteCalls).toHaveLength(0);

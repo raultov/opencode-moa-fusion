@@ -2,9 +2,7 @@ import type { AssistantMessage, OpencodeClient, Part } from "@opencode-ai/sdk";
 import { partsToText } from "./extract.js";
 import type { ModelRef, WorkerResult } from "./types.js";
 
-type SessionCreateBody = NonNullable<
-  Parameters<OpencodeClient["session"]["create"]>[0]
->["body"];
+type SessionCreateBody = NonNullable<Parameters<OpencodeClient["session"]["create"]>[0]>["body"];
 
 type ExtendedSessionCreateBody = SessionCreateBody & {
   agent?: string;
