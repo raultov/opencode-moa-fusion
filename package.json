@@ -1,0 +1,23 @@
+{
+  "name": "opencode-moa-fusion",
+  "version": "1.0.1",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --write",
+    "format": "biome format --write",
+    "check": "biome check --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.0",
+    "@types/bun": "latest",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.4.0",
+    "@opencode-ai/sdk": "*"
+  }
+}

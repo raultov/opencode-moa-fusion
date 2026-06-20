@@ -1,0 +1,5 @@
+.knot/
+.idea/
+node_modules/
+dist/
+
