@@ -15,11 +15,26 @@ A Mixture-of-Agents (MoA) plugin for [OpenCode](https://github.com/opencode-ai/o
 
 **One-line installer (recommended):**
 
+Linux & macOS (bash, also works under WSL and Git Bash on Windows):
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash
 ```
 
-The installer will interactively ask whether you want to install it for the current project (`./opencode.json`) or globally (`~/.config/opencode/opencode.json`). It will also automatically show you a menu to select the background worker models from your available OpenCode providers.
+Windows (PowerShell 5.1+ on Windows 10+, or PowerShell 7+ everywhere):
+
+```powershell
+irm https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.ps1 | iex
+```
+
+Both installers will interactively ask whether you want to install it for the current project (`./opencode.json`) or globally (`~/.config/opencode/opencode.json`). They will also automatically show you a menu to select the background worker models from your available OpenCode providers. The two installers share the exact same Node.js logic; only the bootstrap wrapper differs.
+
+> **Windows note:** the PowerShell installer needs an interactive terminal. The `irm | iex` form works in Windows Terminal / PowerShell 7. If your shell complains about no TTY, download the script first and run it directly:
+>
+> ```powershell
+> irm https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.ps1 -OutFile install.ps1
+> .\install.ps1
+> ```
 
 Alternatively, you can install the plugin manually via `npm` or `bun`:
 
@@ -50,7 +65,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 {
   "plugin": [
     [
-      "opencode-moa-fusion@1.2.2",
+      "opencode-moa-fusion@1.2.3",
       {
         "workers": [
           "openai/gpt-4o-mini",
@@ -66,7 +81,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 
 ### ⚠️ Always pin a specific version — do not use `@latest`
 
-**Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.2`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
+**Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.3`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
 
 1. **Security / supply chain.** Pinning guarantees that the exact code you audited is what runs locally. Plugins execute in your OpenCode process with full filesystem and network access — a compromised future release published to npm would be picked up silently by `@latest` resolvers. A pinned version protects you from upstream tampering (and from accidental breaking changes during a normal release).
 2. **OpenCode's plugin cache does not revalidate `@latest`.** OpenCode caches plugins under `~/.cache/opencode/packages/<pkg>@<spec>/`, keyed by the literal spec string. With `@latest` the cache directory is named `opencode-moa-fusion@latest`, and OpenCode reuses it forever — it never re-checks npm to see if a newer release exists. The result: when a new version is published, your install keeps running the old (possibly broken) cached copy. To pick up the new version you'd have to manually delete `~/.cache/opencode/packages/opencode-moa-fusion@latest/` before every restart, which defeats the point.
@@ -97,8 +112,19 @@ directly from the OpenCode prompt:
 
 > **User:** `/moa explain BGP in one paragraph`
 
-The command instructs the agent to fan out via `moa_fusion` and synthesize the
-answer, with no need to mention the tool explicitly.
+The command instructs the agent to fan out via `moa_fusion`, **report worker
+completion to you** (model name, elapsed time and status per worker), and then
+synthesize the unified answer. Because worker subagents are not navigable from
+the OpenCode TUI, this progress block is the only built-in visibility you get
+into the parallel runs — the command requires the agent to print it before the
+synthesized answer, even when every worker succeeded. Example:
+
+```
+Workers completed:
+- Worker 1 — google/gemini-2.5-flash — 4590ms — ok
+- Worker 2 — anthropic/claude-3-5-haiku — 5100ms — ok
+- Worker 3 — openai/gpt-4o-mini — 6210ms — failed: timeout
+```
 
 > **Note:** If you used the interactive one-line installer from the `Installation` section, the `/moa` command was already installed for you.
 

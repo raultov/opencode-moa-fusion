@@ -1,41 +1,34 @@
-#!/usr/bin/env bash
+#!/usr/bin/env pwsh
 #
-# opencode-moa-fusion — Interactive installer
+# opencode-moa-fusion — Interactive installer (Windows / PowerShell)
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash
-#   ./install.sh
+#   irm https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.ps1 | iex
+#   .\install.ps1
+#
+# Requires PowerShell 5.1+ (Windows 10+) or PowerShell 7+. The interactive
+# multi-select renderer uses ANSI escape sequences and the modern terminal
+# input mode — both are supported by Windows Terminal, Windows PowerShell on
+# Windows 10+, and pwsh on every supported platform.
 
-if [ -z "${BASH_VERSION:-}" ]; then
-  if command -v bash >/dev/null 2>&1; then
-    exec bash "$0" "$@"
-  else
-    printf 'bash is required to run this installer.\n' >&2
-    exit 1
-  fi
-fi
-
-set -e
-set -u
-set -o pipefail
+$ErrorActionPreference = "Stop"
 
 # Ensure Node.js is installed
-if ! command -v node >/dev/null 2>&1; then
-    echo "Error: Node.js is required but not installed." >&2
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Host "Error: Node.js is required but not installed." -ForegroundColor Red
     exit 1
-fi
+}
 
 # Ensure npm is installed
-if ! command -v npm >/dev/null 2>&1; then
-    echo "Error: npm is required but not installed." >&2
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Write-Host "Error: npm is required but not installed." -ForegroundColor Red
     exit 1
-fi
+}
 
-# Export args to use them inside node
-export INSTALL_ARGS="$*"
-
-# Execute embedded Node.js script
-node -e '
+# Embedded Node.js installer. Mirrors the script in install.sh — keep both in
+# sync. We use a single-quoted here-string so PowerShell does no variable
+# expansion or escaping inside; the JS source is passed to node verbatim.
+$nodeScript = @'
 const fs = require("fs");
 const path = require("path");
 const cp = require("child_process");
@@ -85,16 +78,6 @@ function fetchMoaMd(version) {
     });
 }
 
-async function runCommand(cmd, args) {
-    return new Promise((resolve, reject) => {
-        const proc = cp.spawn(cmd, args, { stdio: "inherit", shell: true });
-        proc.on("close", (code) => {
-            if (code === 0) resolve();
-            else reject(new Error(`Command ${cmd} exited with ${code}`));
-        });
-    });
-}
-
 async function captureCommand(cmd, args) {
     return new Promise((resolve, reject) => {
         let out = "";
@@ -121,7 +104,7 @@ function getOpencodeModels() {
 // Minimal interactive multiselect prompt
 async function multiSelectPrompt(models) {
     if (models.length === 0) return [];
-    
+
     return new Promise((resolve) => {
         const rl = readline.createInterface({
             input: process.stdin,
@@ -144,7 +127,7 @@ async function multiSelectPrompt(models) {
             const maxVisible = 15;
             let startIdx = Math.max(0, cursorY - Math.floor(maxVisible / 2));
             let endIdx = Math.min(filtered.length, startIdx + maxVisible);
-            
+
             if (endIdx - startIdx < maxVisible) {
                 startIdx = Math.max(0, endIdx - maxVisible);
             }
@@ -153,10 +136,10 @@ async function multiSelectPrompt(models) {
                 const m = filtered[i];
                 const isSelected = selected.has(m);
                 const isHovered = i === cursorY;
-                
+
                 const prefix = isHovered ? `${C.cyan}>` : " ";
                 const box = isSelected ? `${C.green}[x]${C.reset}` : "[ ]";
-                
+
                 out += `${prefix} ${box} ${m}${isHovered ? C.reset : ""}\n`;
             }
             if (filtered.length === 0) {
@@ -170,7 +153,7 @@ async function multiSelectPrompt(models) {
 
         const onKeypress = (str, key) => {
             const filtered = models.filter(m => m.toLowerCase().includes(filter.toLowerCase()));
-            
+
             if (key.name === "return") {
                 process.stdin.removeListener("keypress", onKeypress);
                 rl.close();
@@ -178,7 +161,7 @@ async function multiSelectPrompt(models) {
                 resolve(Array.from(selected));
                 return;
             }
-            
+
             if (key.name === "up") {
                 if (cursorY > 0) cursorY--;
             } else if (key.name === "down") {
@@ -227,7 +210,7 @@ async function scopePrompt() {
             process.stdin.setRawMode(false);
             process.stdout.write(str + "\n\n");
             rl.close();
-            
+
             if (str === "1") resolve("local");
             else if (str === "2") resolve("global");
             else process.exit(0);
@@ -247,13 +230,18 @@ async function main() {
             const ttyReadStream = new tty.ReadStream(ttyFd);
             const ttyWriteStream = new tty.WriteStream(ttyFd);
 
-            // Override standard streams for the interactive parts
             Object.defineProperty(process, "stdin", { value: ttyReadStream });
             Object.defineProperty(process, "stdout", { value: ttyWriteStream });
         } catch (e) {
             console.error("No TTY available. Cannot run interactive installer.");
             process.exit(1);
         }
+    }
+
+    if (process.platform === "win32" && (!process.stdout.isTTY || !process.stdin.isTTY)) {
+        console.error("No TTY detected. Run the installer in an interactive terminal,");
+        console.error("for example: irm https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.ps1 -OutFile install.ps1; .\\install.ps1");
+        process.exit(1);
     }
 
     const scope = await scopePrompt();
@@ -269,9 +257,6 @@ async function main() {
 
     const isGlobal = scope === "global";
 
-    // Configure opencode.json
-    // Note: OpenCode resolves plugins from npm automatically and caches them
-    // under ~/.cache/opencode/packages/. No local npm install is needed.
     let configPath = "";
     let cmdDir = "";
 
@@ -296,7 +281,6 @@ async function main() {
         console.log(`${C.yellow}Could not fetch models. You can add them to opencode.json manually later.${C.reset}`);
     }
 
-    // Update opencode.json
     let cfg = { plugin: [] };
     if (fs.existsSync(configPath)) {
         try {
@@ -310,14 +294,12 @@ async function main() {
     const pluginSpec = `opencode-moa-fusion@${version}`;
     const pluginConfig = workers.length > 0 ? { workers } : {};
 
-    // Remove existing opencode-moa-fusion entries
     cfg.plugin = cfg.plugin.filter(p => {
         if (typeof p === "string") return !p.startsWith("opencode-moa-fusion");
         if (Array.isArray(p) && typeof p[0] === "string") return !p[0].startsWith("opencode-moa-fusion");
         return true;
     });
 
-    // Add new entry
     if (Object.keys(pluginConfig).length === 0) {
         cfg.plugin.push(pluginSpec);
     } else {
@@ -343,7 +325,7 @@ async function main() {
     const cmdPath = path.join(cmdDir, "moa.md");
     fs.writeFileSync(cmdPath, moaMd);
     console.log(`${C.green}✓ Installed /moa command at ${cmdPath}${C.reset}\n`);
-    
+
     console.log(`${C.bold}All done! Please restart OpenCode to use the /moa command.${C.reset}\n`);
 }
 
@@ -351,4 +333,22 @@ main().catch(err => {
     console.error(err);
     process.exit(1);
 });
-'
+'@
+
+# Write the Node.js script to a temp file and execute it. We avoid `node -e`
+# because PowerShell's argument quoting + node's eval string escaping make
+# embedding ~300 lines of JS error-prone on Windows.
+$tmpFile = Join-Path ([System.IO.Path]::GetTempPath()) ("opencode-moa-fusion-install-" + [System.Guid]::NewGuid().ToString() + ".js")
+try {
+    [System.IO.File]::WriteAllText($tmpFile, $nodeScript, [System.Text.UTF8Encoding]::new($false))
+    & node $tmpFile
+    $nodeExit = $LASTEXITCODE
+} finally {
+    if (Test-Path $tmpFile) {
+        Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+if ($nodeExit -ne 0) {
+    exit $nodeExit
+}
