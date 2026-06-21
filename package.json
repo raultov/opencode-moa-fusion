@@ -1,6 +1,6 @@
 {
   "name": "opencode-moa-fusion",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "type": "module",
   "main": "dist/index.js",
   "files": [

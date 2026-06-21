@@ -29,7 +29,7 @@ irm https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.p
 
 Both installers will interactively ask whether you want to install it for the current project (`./opencode.json`) or globally (`~/.config/opencode/opencode.json`). They will also automatically show you a menu to select the background worker models from your available OpenCode providers. The two installers share the exact same Node.js logic; only the bootstrap wrapper differs.
 
-> **Disclaimer on model selection:** The interactive installer runs `opencode models` internally to fetch your available models. If you use custom providers or plugins that require specific environment variables to be set to expose their models (e.g., `ANTHROPIC_API_KEY=x ANTHROPIC_BASE_URL=http://127.0.0.1:3456 opencode models`), those models might not appear in the installer's list. The installer cannot foresee these runtime environments, but you can always add the missing models manually to your `opencode.json` after installation.
+> **Disclaimer on model selection:** The interactive installer runs `opencode models` internally to fetch your available models. If you use custom providers or plugins that require specific environment variables to be set to expose their models, those models might not appear in the installer's list. If you are passing variables in the same line as the curl pipeline, make sure you put them before the `bash` command, not before `curl` (e.g., `curl -fsSL <url> | ANTHROPIC_API_KEY=x bash`), or export them first (`export ANTHROPIC_API_KEY=x && curl -fsSL <url> | bash`). Otherwise, the installer cannot foresee these runtime environments, but you can always add the missing models manually to your `opencode.json` after installation.
 
 > **Windows note:** the PowerShell installer needs an interactive terminal. The `irm | iex` form works in Windows Terminal / PowerShell 7. If your shell complains about no TTY, download the script first and run it directly:
 >
@@ -67,7 +67,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 {
   "plugin": [
     [
-      "opencode-moa-fusion@1.2.4",
+      "opencode-moa-fusion@1.2.5",
       {
         "workers": [
           "openai/gpt-4o-mini",
@@ -83,7 +83,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 
 ### ⚠️ Always pin a specific version — do not use `@latest`
 
-**Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.4`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
+**Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.5`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
 
 1. **Security / supply chain.** Pinning guarantees that the exact code you audited is what runs locally. Plugins execute in your OpenCode process with full filesystem and network access — a compromised future release published to npm would be picked up silently by `@latest` resolvers. A pinned version protects you from upstream tampering (and from accidental breaking changes during a normal release).
 2. **OpenCode's plugin cache does not revalidate `@latest`.** OpenCode caches plugins under `~/.cache/opencode/packages/<pkg>@<spec>/`, keyed by the literal spec string. With `@latest` the cache directory is named `opencode-moa-fusion@latest`, and OpenCode reuses it forever — it never re-checks npm to see if a newer release exists. The result: when a new version is published, your install keeps running the old (possibly broken) cached copy. To pick up the new version you'd have to manually delete `~/.cache/opencode/packages/opencode-moa-fusion@latest/` before every restart, which defeats the point.
