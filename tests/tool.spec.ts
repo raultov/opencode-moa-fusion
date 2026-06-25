@@ -218,6 +218,23 @@ describe("tool [Component]", () => {
     });
   });
 
+  describe("Scenario: options.timeoutMs is forwarded", () => {
+    it("Given options.timeoutMs=50 and a slow worker When executed Then the worker is aborted with 'timeout' error", async () => {
+      const client = getClientWithModels(async (_, body) => {
+        if (body.model?.modelID === "slow") {
+          await sleep(500);
+        }
+        return { parts: [{ type: "text", text: "ok" }] };
+      });
+      const toolObj = getTool(client, { timeoutMs: 50 });
+      const res = await toolObj.execute({ prompt: "P", workers: ["p/slow", "p/fast"] }, ctxFor());
+      expectObject(res);
+      expect(res.output).toContain("failed:");
+      expect(res.output).toContain("timeout");
+      expect(res.metadata.partial).toBe(true);
+    });
+  });
+
   describe("Scenario: Plugin entry (default export)", () => {
     it("Given importing default When invoked as Plugin Then returns Hooks with tool.moa_fusion", async () => {
       const plugin = (await import("../src/index.js")).default;

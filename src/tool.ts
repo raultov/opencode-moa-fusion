@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 import type { OpencodeClient } from "@opencode-ai/sdk";
 import { callModel } from "./callModel.js";
-import { resolveRoles } from "./roles.js";
+import { resolveRoles, resolveTimeoutMs } from "./roles.js";
 import { RoleResolutionError, type WorkerResult } from "./types.js";
 
 const z = tool.schema;
@@ -16,7 +16,12 @@ export const ArgsSchema = {
     .string()
     .optional()
     .describe("Agent profile to use for each underlying model call (default: 'general')."),
-  timeoutMs: z.number().int().positive().optional().describe("Per-worker timeout. Default 120000."),
+  timeoutMs: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Per-worker timeout in ms. Default 300000 (5 min)."),
 };
 
 const SYNTHESIS_INSTRUCTIONS = `Received N worker outputs for the prompt below. Synthesize a single unified
@@ -54,7 +59,7 @@ export const moaFusionTool = (client: OpencodeClient, options: Record<string, un
 
         ctx.metadata({ title: `moa_fusion: ${roles.workers.length} workers` });
 
-        const timeoutMs = args.timeoutMs || 120000;
+        const timeoutMs = resolveTimeoutMs(args, options);
         const agent = args.agent || "general";
 
         const workerPromises = roles.workers.map((model) =>

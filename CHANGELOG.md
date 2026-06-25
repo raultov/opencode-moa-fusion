@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.6] - 2026-06-25
+
+### Added
+
+- **`timeoutMs` is now configurable from plugin options**: the per-worker
+  timeout can be set in `opencode.json` under `plugin.options.moa_fusion.timeoutMs`
+  in addition to the existing per-call `args.timeoutMs`. A new
+  `resolveTimeoutMs()` helper in `src/roles.ts` centralizes the precedence
+  rule (`args > options > default`), validates that the value is a positive
+  number, and defaults to **300000 ms (5 min)** instead of the previous
+  hardcoded 120000 ms. The `ArgsSchema` description was updated to reflect
+  the new default.
+
+### Changed
+
+- **`callModel` per-worker timeout raised from 120000 to 300000 ms (5 min)**:
+  the previous 2-minute default was too tight for slower models and large
+  prompts; the new default gives all workers enough headroom to finish
+  without prematurely aborting legitimate long-running calls. Users who
+  need a tighter bound can still pass `timeoutMs` explicitly via args or
+  plugin options.
+
+### Tests
+
+- Added unit tests for `resolveTimeoutMs` covering empty inputs, args
+  precedence over options, fallback semantics for non-positive or
+  non-numeric values, and custom fallbacks.
+- Added an integration test verifying that `options.timeoutMs` is forwarded
+  to `callModel` (slow worker aborted with `timeout` error).
+
 ## [1.2.5] - 2026-06-21
 
 ### Added
@@ -107,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mixture-of-Agents plugin for OpenCode: fans out prompts to multiple worker
   models in parallel and synthesizes a unified answer.
 
+[1.2.6]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.2...v1.2.3

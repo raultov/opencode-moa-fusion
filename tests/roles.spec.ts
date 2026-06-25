@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { resolveRoles } from "../src/roles.js";
+import { resolveRoles, resolveTimeoutMs } from "../src/roles.js";
 import { RoleResolutionError } from "../src/types.js";
 import { makeMockClient } from "./_fixtures/mockClient.js";
 
@@ -73,6 +73,48 @@ describe("resolveRoles [Component]", () => {
       }
       expect(err).toBeInstanceOf(RoleResolutionError);
       expect((err as RoleResolutionError).code).toBe("MISSING_ROLES");
+    });
+  });
+});
+
+describe("resolveTimeoutMs [Unit]", () => {
+  describe("Scenario: no args and no options", () => {
+    it("Given empty inputs When resolveTimeoutMs is called Then returns default 300000", () => {
+      expect(resolveTimeoutMs({}, {})).toBe(300000);
+    });
+  });
+
+  describe("Scenario: args.timeoutMs provided", () => {
+    it("Given args.timeoutMs When resolveTimeoutMs is called Then returns args value", () => {
+      expect(resolveTimeoutMs({ timeoutMs: 60000 }, {})).toBe(60000);
+    });
+  });
+
+  describe("Scenario: options.timeoutMs provided", () => {
+    it("Given options.timeoutMs When resolveTimeoutMs is called Then returns options value", () => {
+      expect(resolveTimeoutMs({}, { timeoutMs: 90000 })).toBe(90000);
+    });
+  });
+
+  describe("Scenario: both args and options", () => {
+    it("Given both When resolveTimeoutMs is called Then args wins", () => {
+      expect(resolveTimeoutMs({ timeoutMs: 10000 }, { timeoutMs: 20000 })).toBe(10000);
+    });
+  });
+
+  describe("Scenario: invalid values fall back", () => {
+    it("Given non-positive args.timeoutMs When resolveTimeoutMs is called Then ignores it and uses options/default", () => {
+      expect(resolveTimeoutMs({ timeoutMs: 0 }, {})).toBe(300000);
+      expect(resolveTimeoutMs({ timeoutMs: -1 }, {})).toBe(300000);
+    });
+    it("Given non-number options.timeoutMs When resolveTimeoutMs is called Then falls back to default", () => {
+      expect(resolveTimeoutMs({}, { timeoutMs: "300000" as unknown as number })).toBe(300000);
+    });
+  });
+
+  describe("Scenario: custom fallback", () => {
+    it("Given fallback When resolveTimeoutMs is called Then uses fallback", () => {
+      expect(resolveTimeoutMs({}, {}, 120000)).toBe(120000);
     });
   });
 });

@@ -2,8 +2,18 @@ import type { OpencodeClient, Provider } from "@opencode-ai/sdk";
 import { parseModelRef } from "./parseModelRef.js";
 import { type ModelRef, type ResolvedRoles, RoleResolutionError } from "./types.js";
 
-type Args = { workers?: string[] };
-type Options = { workers?: unknown };
+type Args = { workers?: string[]; timeoutMs?: number };
+type Options = { workers?: unknown; timeoutMs?: unknown };
+
+export function resolveTimeoutMs(args: Args, options: Options, fallback = 300000): number {
+  const fromArgs =
+    typeof args.timeoutMs === "number" && args.timeoutMs > 0 ? args.timeoutMs : undefined;
+  if (fromArgs) return fromArgs;
+  const fromOpts =
+    typeof options.timeoutMs === "number" && options.timeoutMs > 0 ? options.timeoutMs : undefined;
+  if (fromOpts) return fromOpts;
+  return fallback;
+}
 
 export async function resolveRoles(
   args: Args,
