@@ -11,7 +11,7 @@ export type ResolvedRoles = {
 
 export class RoleResolutionError extends Error {
   constructor(
-    public readonly code: "MISSING_ROLES" | "UNKNOWN_MODEL" | "INVALID_REF",
+    public readonly code: "MISSING_ROLES" | "UNKNOWN_MODEL" | "INVALID_REF" | "INVALID_WORKER_TOOLS",
     message: string,
   ) {
     super(message);

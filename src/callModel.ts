@@ -36,6 +36,7 @@ export type CallModelOpts = {
   agent?: string;
   abort: AbortSignal;
   timeoutMs: number;
+  tools?: Record<string, boolean>;
 };
 
 export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
@@ -80,7 +81,7 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
           agent: opts.agent || "general",
           ...(opts.system ? { system: opts.system } : {}),
           parts: [{ type: "text", text: wrapReadOnly(opts.text) }],
-          tools: { moa_fusion: false },
+          tools: { ...(opts.tools || {}), moa_fusion: false },
         },
         signal: ac.signal,
       });

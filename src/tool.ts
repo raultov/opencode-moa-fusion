@@ -3,6 +3,7 @@ import type { OpencodeClient } from "@opencode-ai/sdk";
 import { callModel } from "./callModel.js";
 import { resolveRoles, resolveTimeoutMs } from "./roles.js";
 import { RoleResolutionError, type WorkerResult } from "./types.js";
+import { resolveWorkerTools } from "./workerTools.js";
 
 const z = tool.schema;
 
@@ -61,6 +62,7 @@ export const moaFusionTool = (client: OpencodeClient, options: Record<string, un
 
         const timeoutMs = resolveTimeoutMs(args, options);
         const agent = args.agent || "general";
+        const tools = resolveWorkerTools(options);
 
         const workerPromises = roles.workers.map((model) =>
           callModel({
@@ -71,6 +73,7 @@ export const moaFusionTool = (client: OpencodeClient, options: Record<string, un
             agent,
             abort: ctx.abort,
             timeoutMs,
+            tools,
           }),
         );
 

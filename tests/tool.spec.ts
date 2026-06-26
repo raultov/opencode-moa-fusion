@@ -189,8 +189,74 @@ describe("tool [Component]", () => {
       const toolObj = getTool(client, {});
       await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
       for (const call of client.__spy.promptCalls) {
-        expect(call.body.tools).toEqual({ moa_fusion: false });
+        expect(call.body.tools?.moa_fusion).toBe(false);
       }
+    });
+  });
+
+  describe("Scenario: worker tool allowlist (default)", () => {
+    it("Given no options.workerTools When executed Then each worker prompt enables only read/glob/grep and denies bash/write/edit/webfetch", async () => {
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, {});
+      await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
+      const tools = client.__spy.promptCalls[0].body.tools;
+      expect(tools).toEqual({
+        read: true,
+        glob: true,
+        grep: true,
+        bash: false,
+        write: false,
+        edit: false,
+        webfetch: false,
+        patch: false,
+        todowrite: false,
+        moa_fusion: false,
+      });
+    });
+  });
+
+  describe("Scenario: worker tool allowlist (custom)", () => {
+    it("Given options.workerTools=[] When executed Then the worker prompt has an empty tools map (only the recursion guard remains)", async () => {
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, { workerTools: [] });
+      await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
+      expect(client.__spy.promptCalls[0].body.tools).toEqual({
+        moa_fusion: false,
+      });
+    });
+
+    it("Given options.workerTools includes moa_fusion When executed Then moa_fusion is still forced false", async () => {
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, { workerTools: ["read", "moa_fusion"] });
+      await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
+      expect(client.__spy.promptCalls[0].body.tools?.moa_fusion).toBe(false);
+      expect(client.__spy.promptCalls[0].body.tools?.read).toBe(true);
+    });
+
+    it("Given options.workerTools is not an array When executed Then returns INVALID_WORKER_TOOLS without creating sessions", async () => {
+      const client = getClientWithModels();
+      const toolObj = getTool(client, { workerTools: "read,glob" });
+      const res = await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
+      expectObject(res);
+      expect(res.output).toContain("workerTools");
+      expect(res.output).toContain("array");
+      expect(res.metadata.partial).toBe(true);
+      expect(client.__spy.createCalls.length).toBe(0);
+    });
+
+    it("Given options.workerTools contains non-strings When executed Then returns INVALID_WORKER_TOOLS", async () => {
+      const client = getClientWithModels();
+      const toolObj = getTool(client, { workerTools: ["read", 42] });
+      const res = await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
+      expectObject(res);
+      expect(res.output).toContain("workerTools");
+      expect(client.__spy.createCalls.length).toBe(0);
     });
   });
 
