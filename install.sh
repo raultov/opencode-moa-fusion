@@ -49,22 +49,21 @@ const C = {
   yellow: "\x1b[33m",
   blue: "\x1b[34m",
   cyan: "\x1b[36m",
-  gray: "\x1b[90m"
+  gray: "\x1b[90m",
+  red: "\x1b[31m"
 };
 
 const MOA_MD_BASE_URL = "https://raw.githubusercontent.com/raultov/opencode-moa-fusion";
 
-// Download commands/moa.md from GitHub for the given version tag (or main if latest).
-// Follows up to 5 redirects (raw.githubusercontent.com sometimes 301s).
-function fetchMoaMd(version) {
+// Download a file from the given URL to a local path. Follows up to 5
+// redirects (raw.githubusercontent.com sometimes 301s). Used for both
+// commands/moa.md and src/install-merge-config.mjs.
+function downloadToFile(url, destPath) {
     const https = require("https");
     const http = require("http");
-    const ref = version === "latest" ? "main" : `v${version}`;
-    const url = `${MOA_MD_BASE_URL}/${ref}/commands/moa.md`;
-
     return new Promise((resolve, reject) => {
         const get = (target, redirects) => {
-            if (redirects > 5) return reject(new Error("Too many redirects fetching moa.md"));
+            if (redirects > 5) return reject(new Error("Too many redirects"));
             const lib = target.startsWith("https") ? https : http;
             lib.get(target, (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -74,14 +73,27 @@ function fetchMoaMd(version) {
                     res.resume();
                     return reject(new Error(`HTTP ${res.statusCode} fetching ${target}`));
                 }
-                let body = "";
-                res.setEncoding("utf8");
-                res.on("data", (chunk) => body += chunk);
-                res.on("end", () => resolve(body));
-                res.on("error", reject);
+                const file = fs.createWriteStream(destPath);
+                res.pipe(file);
+                file.on("finish", () => file.close(() => resolve()));
+                file.on("error", reject);
             }).on("error", reject);
         };
         get(url, 0);
+    });
+}
+
+// Fetch commands/moa.md from GitHub for the given version tag (or main if latest).
+// Returns the file contents as a string.
+function fetchMoaMd(version) {
+    const ref = version === "latest" ? "main" : `v${version}`;
+    const url = `${MOA_MD_BASE_URL}/${ref}/commands/moa.md`;
+    const tmpPath = path.join(require("os").tmpdir(), `opencode-moa-fusion-moa-${Date.now()}.md`);
+    return downloadToFile(url, tmpPath).then(
+        () => fs.readFileSync(tmpPath, "utf-8"),
+        (err) => Promise.reject(err),
+    ).finally(() => {
+        try { fs.unlinkSync(tmpPath); } catch {}
     });
 }
 
@@ -296,40 +308,47 @@ async function main() {
         console.log(`${C.yellow}Could not fetch models. You can add them to opencode.json manually later.${C.reset}`);
     }
 
-    // Update opencode.json
-    let cfg = { plugin: [] };
-    if (fs.existsSync(configPath)) {
-        try {
-            cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-            if (!Array.isArray(cfg.plugin)) cfg.plugin = [];
-        } catch (e) {
-            console.log(`${C.yellow}Warning: Existing opencode.json is not valid JSON. Starting fresh.${C.reset}`);
-        }
+    // Update opencode.json. We delegate the read/backup/merge/write to a
+    // self-contained merge script downloaded from the same release tag, so
+    // that the logic is testable and never silently clobbers a malformed
+    // file (see src/install-merge-config.mjs and the install-merge-config
+    // unit tests in tests/).
+    const ref = version === "latest" ? "main" : `v${version}`;
+    const mergeScriptUrl = `${MOA_MD_BASE_URL}/${ref}/src/install-merge-config.mjs`;
+    const os = require("os");
+    const mergeScriptPath = path.join(
+        os.tmpdir(),
+        `opencode-moa-fusion-merge-${Date.now()}-${Math.random().toString(36).slice(2)}.mjs`,
+    );
+
+    console.log(`\n${C.blue}Downloading merge-config script from ${ref}...${C.reset}`);
+    try {
+        await downloadToFile(mergeScriptUrl, mergeScriptPath);
+    } catch (e) {
+        console.error(`${C.red}Failed to download merge-config script: ${e.message}${C.reset}`);
+        console.error(`${C.yellow}Your existing opencode.json was NOT modified.${C.reset}`);
+        process.exit(1);
     }
 
-    const pluginSpec = `opencode-moa-fusion@${version}`;
-    const pluginConfig = workers.length > 0 ? { workers } : {};
-
-    // Remove existing opencode-moa-fusion entries
-    cfg.plugin = cfg.plugin.filter(p => {
-        if (typeof p === "string") return !p.startsWith("opencode-moa-fusion");
-        if (Array.isArray(p) && typeof p[0] === "string") return !p[0].startsWith("opencode-moa-fusion");
-        return true;
-    });
-
-    // Add new entry
-    if (Object.keys(pluginConfig).length === 0) {
-        cfg.plugin.push(pluginSpec);
-    } else {
-        cfg.plugin.push([pluginSpec, pluginConfig]);
+    try {
+        const pluginSpec = `opencode-moa-fusion@${version}`;
+        const workersArg = workers.join(",");
+        await runCommand("node", [
+            mergeScriptPath,
+            `--config-path=${configPath}`,
+            `--plugin-spec=${pluginSpec}`,
+            `--workers=${workersArg}`,
+        ]);
+        console.log(`\n${C.green}✓ Updated ${configPath}${C.reset}`);
+    } catch (e) {
+        console.error(`${C.red}Failed to merge plugin entry into opencode.json: ${e.message}${C.reset}`);
+        console.error(`${C.yellow}Your existing opencode.json was NOT modified.${C.reset}`);
+        process.exit(1);
+    } finally {
+        try { fs.unlinkSync(mergeScriptPath); } catch {}
     }
-
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + "\n");
-    console.log(`\n${C.green}✓ Updated ${configPath}${C.reset}`);
 
     // Fetch /moa command from GitHub (single source of truth: commands/moa.md)
-    const ref = version === "latest" ? "main" : `v${version}`;
     console.log(`${C.blue}Fetching /moa command for ${ref}...${C.reset}`);
     let moaMd;
     try {

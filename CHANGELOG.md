@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.7] - 2026-06-26
+
+### Fixed (CRITICAL)
+
+- **Installer no longer destroys the user's `opencode.json`.** When the
+  existing config was not parseable as strict JSON — for example because it
+  contained `//` or `/* */` comments, trailing commas, or a BOM — the
+  installer used to fall through to a default `{ "plugin": [] }` object and
+  **silently overwrite** the entire file, dropping every other top-level key
+  (`model`, `provider`, `mcp`, `theme`, agent overrides, etc.). This was
+  reported by a user whose `opencode.json` was reduced to a bare plugin
+  entry after running `curl -fsSL .../install.sh | bash`. The fix:
+
+  1. **Backup first.** Before writing, the existing file is copied to
+     `<configPath>.bak.<iso-timestamp>`, so the user can always recover
+     their previous config from the same directory.
+  2. **Tolerate JSON5/JSONC.** The reader strips `//` and `/* */` comments
+     and trailing commas before retrying `JSON.parse`, so common
+     hand-edited configs (the kind `JSON.parse` chokes on) are now
+     accepted and merged. The stripper is string-aware, so URLs and other
+     `//` text inside JSON strings are preserved.
+  3. **Refuse to overwrite a malformed file.** If the config still cannot
+     be parsed after sanitization — or if its top-level value is not an
+     object — the installer exits non-zero with a clear error and the
+     file on disk is **not** modified.
+
+### Changed
+
+- The config-read/backup/merge/write logic now lives in a self-contained
+  CLI at `src/install-merge-config.mjs`. Both `install.sh` and
+  `install.ps1` download that file from the same release tag and invoke
+  it with `--config-path`, `--plugin-spec` and `--workers` arguments.
+  This keeps the install scripts thin and makes the merge behaviour
+  unit-testable (see `tests/install-merge-config.spec.ts`).
+- Added the `red` ANSI color to the terminal palette used by the
+  installers for error messages.
+
 ## [1.2.6] - 2026-06-25
 
 ### Added
@@ -137,6 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mixture-of-Agents plugin for OpenCode: fans out prompts to multiple worker
   models in parallel and synthesizes a unified answer.
 
+[1.2.7]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.3...v1.2.4

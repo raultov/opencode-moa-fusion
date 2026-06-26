@@ -1,13 +1,14 @@
 {
   "name": "opencode-moa-fusion",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "type": "module",
   "main": "dist/index.js",
   "files": [
     "dist",
     "commands",
     "install.sh",
-    "install.ps1"
+    "install.ps1",
+    "src/install-merge-config.mjs"
   ],
   "scripts": {
     "test": "bun test",
