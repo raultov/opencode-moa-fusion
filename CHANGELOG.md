@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security (PR `security/hardening-2026-06`)
+
+#### Step 1 — Worker tool allowlist (consensus #1, Critical)
+
+- **Workers are now sandboxed to a read-only tool allowlist by default.**
+  The new `workerTools` plugin option lets users extend the allowlist;
+  default is `["read", "glob", "grep"]`. `bash`, `write`, `edit`,
+  `webfetch`, `patch`, and `todowrite` are explicitly denied unless the
+  user opts in by listing them. `moa_fusion` is always forced off inside
+  workers to prevent recursion. See `README.md` for details.
+
+#### Step 2 — Installer integrity (consensus #2, Critical)
+
+- **Installer now verifies release integrity** via Sigstore/cosign
+  keyless signatures and SHA-256 checksums published with every GitHub
+  release. Pinning is to immutable tags only — the `main`/`latest`
+  fallback is gone. Redirects are restricted to an allowlist of
+  GitHub-controlled hosts (`github.com`,
+  `objects.githubusercontent.com`, `raw.githubusercontent.com`); any
+  other redirect target is refused.
+- New `--skip-signature` escape hatch (still SHA-256 verified,
+  recommended only for CI smoke tests where installing `cosign` is
+  impractical). Documented in `RELEASING.md`.
+- New `src/install-verify.mjs` module exposes the verification helpers
+  for unit testing without touching the embedded installer scripts.
+- New end-to-end test (`tests/install_signature.sh` /
+  `tests/install_signature_e2e.mjs`) spins up a local HTTP server and
+  exercises the verify flow against tampered fixtures.
+
 ## [1.2.7] - 2026-06-26
 
 ### Fixed (CRITICAL)
