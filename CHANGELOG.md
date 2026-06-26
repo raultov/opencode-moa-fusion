@@ -48,6 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   argument (the field is silently stripped before `execute()` runs;
   callers using `moaFusionTool` directly see the `general` default).
 
+#### Step 4 — Worker cap and dedup (consensus #4, High)
+
+- **Up to 8 workers per call.** Enforced at two layers:
+  1. The schema-level `z.array(...).max(8)` on `args.workers` rejects
+     oversized arrays at parse time (before any side effect).
+  2. `resolveRoles` checks the post-dedup count and throws
+     `TOO_MANY_WORKERS` for either input path (args or plugin options).
+- **Duplicates are silently dropped** after `parseModelRef`, comparing
+  by `${providerID}/${modelID}`. The first occurrence wins. This
+  prevents cost amplification when a user accidentally lists the same
+  model twice.
+- New `TOO_MANY_WORKERS` error code in `RoleResolutionError`.
+- New tests in `tests/roles.spec.ts` (dedup, cap) and `tests/tool.spec.ts`
+  (schema rejection at parse time, dedup at spawn time).
+
 ## [1.2.7] - 2026-06-26
 
 ### Fixed (CRITICAL)

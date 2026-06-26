@@ -301,6 +301,42 @@ describe("tool [Component]", () => {
     });
   });
 
+  describe("Scenario: workers cap is enforced at the schema level (Step 4 / consensus #4)", () => {
+    it("Given args.workers has 9 entries When executed Then the tool returns a schema error without spawning sessions", async () => {
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, {});
+      const nineWorkers = [
+        "p/m1", "p/m2", "p/m3", "p/m4", "p/m5", "p/m6", "p/m7", "p/m8", "p/m9",
+      ];
+      const res = await toolObj.execute(
+        { prompt: "P", workers: nineWorkers },
+        ctxFor(),
+      );
+      expectObject(res);
+      expect(res.metadata.partial).toBe(true);
+      expect(res.output.length).toBeGreaterThan(0);
+      expect(client.__spy.createCalls.length).toBe(0);
+    });
+  });
+
+  describe("Scenario: workers dedup is reflected in spawned sessions (Step 4 / consensus #4)", () => {
+    it("Given args.workers contains duplicates When executed Then only the unique workers spawn sessions", async () => {
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, {});
+      const res = await toolObj.execute(
+        { prompt: "P", workers: ["p/m1", "p/m1", "p/m2"] },
+        ctxFor(),
+      );
+      expectObject(res);
+      expect(client.__spy.createCalls.length).toBe(2);
+      expect(client.__spy.promptCalls.length).toBe(2);
+    });
+  });
+
   describe("Scenario: agent is configured via options only (Step 3 / CWE-20)", () => {
     it("Given no options.agent When executed Then workers spin up under the 'general' agent", async () => {
       const client = getClientWithModels(async () => ({

@@ -187,7 +187,7 @@ The tool will:
 ### Tool Arguments
 
 - **`prompt`** (required): The user prompt to fan out to every worker model.
-- **`workers`** (optional): Array of worker model refs as `"providerID/modelID"`. Overrides plugin options. Up to 8 workers per call; duplicates are rejected.
+- **`workers`** (optional): Array of worker model refs as `"providerID/modelID"`. Overrides plugin options. Up to 8 workers per call (schema-enforced at parse time); duplicates are rejected.
 - **`timeoutMs`** (optional): Per-worker timeout in milliseconds. Defaults to 300000ms.
 
 > **Note:** the `agent` profile used for the underlying model calls is **not**

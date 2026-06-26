@@ -70,7 +70,39 @@ export async function resolveRoles(
     return ref;
   };
 
-  const workers = workersRaw.map(validate);
+  const validated = workersRaw.map(validate);
 
-  return { workers, source };
+  // Deduplicate by `${providerID}/${modelID}`. Duplicates are silently
+  // dropped — the first occurrence wins. If the deduped list is empty
+  // (e.g. all entries were unknown models), MISSING_ROLES would already
+  // have been raised above; we still guard here for defence in depth.
+  const seen = new Set<string>();
+  const deduped: ModelRef[] = [];
+  for (const w of validated) {
+    const key = `${w.providerID}/${w.modelID}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(w);
+  }
+
+  if (deduped.length === 0) {
+    throw new RoleResolutionError(
+      "MISSING_ROLES",
+      `moa_fusion: no models configured. Provide \`workers\` in args or plugin options.`,
+    );
+  }
+
+  // Cap parallel worker sessions. Throwing (instead of silently trimming)
+  // is deliberate: silent trimming hides config bugs in opencode.json.
+  // The schema-level `.max(8)` on args.workers catches the args path at
+  // parse time, before we reach this resolver.
+  if (deduped.length > 8) {
+    throw new RoleResolutionError(
+      "TOO_MANY_WORKERS",
+      `moa_fusion: at most 8 workers allowed, got ${deduped.length}. ` +
+        `Reduce the \`workers\` list in your plugin options or split the fan-out into multiple calls.`,
+    );
+  }
+
+  return { workers: deduped, source };
 }

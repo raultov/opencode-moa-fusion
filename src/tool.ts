@@ -11,8 +11,13 @@ export const ArgsSchema = {
   prompt: z.string().min(1).describe("The user prompt to fan out to every worker model."),
   workers: z
     .array(z.string())
+    .min(1)
+    .max(8)
     .optional()
-    .describe('Worker model refs as "providerID/modelID". Overrides plugin options.'),
+    .describe(
+      'Worker model refs as "providerID/modelID". Overrides plugin options. ' +
+        "Up to 8 workers per call; duplicates are rejected.",
+    ),
   timeoutMs: z
     .number()
     .int()
