@@ -63,6 +63,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New tests in `tests/roles.spec.ts` (dedup, cap) and `tests/tool.spec.ts`
   (schema rejection at parse time, dedup at spawn time).
 
+#### Step 5 — `READ_ONLY_DIRECTIVE` moved to the `system` channel (consensus #5, Medium)
+
+- **The read-only directive is now sent as the `system` field** of
+  `session.prompt`, no longer concatenated into the user message.
+  Combined with Step 1 (tool allowlist) and Step 3 (agent pinned by the
+  user), this is defence-in-depth against prompt-injection payloads:
+  the directive lives on a separate channel that the model is
+  instructed to treat as authoritative.
+- **The user prompt is wrapped in `<user_prompt>...</user_prompt>`**
+  boundary markers, giving the model an unambiguous start/end even if a
+  provider ignores the `system` channel.
+- `wrapReadOnly` is removed; replaced by `wrapUserPrompt` (only does
+  the boundary wrap, no directive concatenation).
+- The legacy `[USER PROMPT BELOW]` textual marker is removed from
+  `READ_ONLY_DIRECTIVE` — the boundary is now structural, not textual.
+- Caller-supplied `opts.system` is appended after the directive
+  (directive always wins), so no caller can shadow it.
+- New tests in `tests/callModel.spec.ts` assert the directive is in
+  `system`, the prompt is wrapped, the legacy marker is gone, and a
+  caller-supplied `system` cannot shadow the directive.
+
 ## [1.2.7] - 2026-06-26
 
 ### Fixed (CRITICAL)
