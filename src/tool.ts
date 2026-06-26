@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 import type { OpencodeClient } from "@opencode-ai/sdk";
 import { callModel } from "./callModel.js";
-import { resolveRoles, resolveTimeoutMs } from "./roles.js";
+import { resolveAgent, resolveRoles, resolveTimeoutMs } from "./roles.js";
 import { RoleResolutionError, type WorkerResult } from "./types.js";
 import { resolveWorkerTools } from "./workerTools.js";
 
@@ -13,10 +13,6 @@ export const ArgsSchema = {
     .array(z.string())
     .optional()
     .describe('Worker model refs as "providerID/modelID". Overrides plugin options.'),
-  agent: z
-    .string()
-    .optional()
-    .describe("Agent profile to use for each underlying model call (default: 'general')."),
   timeoutMs: z
     .number()
     .int()
@@ -61,7 +57,7 @@ export const moaFusionTool = (client: OpencodeClient, options: Record<string, un
         ctx.metadata({ title: `moa_fusion: ${roles.workers.length} workers` });
 
         const timeoutMs = resolveTimeoutMs(args, options);
-        const agent = args.agent || "general";
+        const agent = resolveAgent(options);
         const tools = resolveWorkerTools(options);
 
         const workerPromises = roles.workers.map((model) =>

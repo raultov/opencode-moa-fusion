@@ -3,7 +3,7 @@ import { parseModelRef } from "./parseModelRef.js";
 import { type ModelRef, type ResolvedRoles, RoleResolutionError } from "./types.js";
 
 type Args = { workers?: string[]; timeoutMs?: number };
-type Options = { workers?: unknown; timeoutMs?: unknown };
+type Options = { workers?: unknown; timeoutMs?: unknown; agent?: unknown };
 
 export function resolveTimeoutMs(args: Args, options: Options, fallback = 300000): number {
   const fromArgs =
@@ -12,6 +12,22 @@ export function resolveTimeoutMs(args: Args, options: Options, fallback = 300000
   const fromOpts =
     typeof options.timeoutMs === "number" && options.timeoutMs > 0 ? options.timeoutMs : undefined;
   if (fromOpts) return fromOpts;
+  return fallback;
+}
+
+/**
+ * Resolve the OpenCode agent profile under which workers run.
+ *
+ * The agent MUST come from the user's `opencode.json` plugin options
+ * (a trusted source). It is deliberately NOT accepted as a tool argument:
+ * a prompt-injection payload that reached the orchestrator agent could
+ * otherwise pick an elevated-permission worker profile. See
+ * `SECURITY_PLAN.md` step 3 (consensus #3, CWE-20).
+ */
+export function resolveAgent(options: Options, fallback = "general"): string {
+  if (typeof options.agent === "string" && options.agent.length > 0) {
+    return options.agent;
+  }
   return fallback;
 }
 

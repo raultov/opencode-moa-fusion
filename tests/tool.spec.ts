@@ -301,6 +301,47 @@ describe("tool [Component]", () => {
     });
   });
 
+  describe("Scenario: agent is configured via options only (Step 3 / CWE-20)", () => {
+    it("Given no options.agent When executed Then workers spin up under the 'general' agent", async () => {
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, {});
+      await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
+      expect(client.__spy.createCalls[0].body?.agent).toBe("general");
+      expect(client.__spy.promptCalls[0].body.agent).toBe("general");
+    });
+
+    it("Given options.agent='plan' When executed Then workers spin up under 'plan'", async () => {
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, { agent: "plan" });
+      await toolObj.execute({ prompt: "P", workers: ["p/m1"] }, ctxFor());
+      expect(client.__spy.createCalls[0].body?.agent).toBe("plan");
+      expect(client.__spy.promptCalls[0].body.agent).toBe("plan");
+    });
+
+    it("Given args.agent='malicious' (legacy orchestrator attempt) When executed Then agent is ignored and 'general' is used", async () => {
+      // Step 3 hardening: args.agent must NOT be honoured. It has been
+      // removed from the public ArgsSchema entirely (Zod strips it before
+      // execute() runs), and resolveAgent only reads from options.
+      const client = getClientWithModels(async () => ({
+        parts: [{ type: "text", text: "ok" }],
+      }));
+      const toolObj = getTool(client, {});
+      // The schema ignores `agent`; the orchestrator cannot override the
+      // agent via the tool args anymore.
+      await toolObj.execute(
+        // @ts-expect-error - agent is intentionally not in the schema anymore
+        { prompt: "P", workers: ["p/m1"], agent: "malicious" },
+        ctxFor(),
+      );
+      expect(client.__spy.createCalls[0].body?.agent).toBe("general");
+      expect(client.__spy.promptCalls[0].body.agent).toBe("general");
+    });
+  });
+
   describe("Scenario: Plugin entry (default export)", () => {
     it("Given importing default When invoked as Plugin Then returns Hooks with tool.moa_fusion", async () => {
       const plugin = (await import("../src/index.js")).default;

@@ -56,7 +56,7 @@ export type MockProvidersResponse = {
 
 export type MockClient = OpencodeClient & {
   __spy: {
-    createCalls: Array<{ body?: { parentID?: string; title?: string } }>;
+    createCalls: Array<{ body?: { parentID?: string; title?: string; agent?: string } }>;
     promptCalls: Array<{ path: { id: string }; body: MockPromptBody }>;
     deleteCalls: Array<{ path: { id: string } }>;
   };
@@ -71,7 +71,7 @@ type CreateCallArgs = Parameters<OpencodeClient["session"]["create"]>[0];
 type PromptCallArgs = Parameters<OpencodeClient["session"]["prompt"]>[0];
 
 export function makeMockClient(script: Partial<MockClient["__script"]> = {}): MockClient {
-  const createCalls: Array<{ body?: { parentID?: string; title?: string } }> = [];
+  const createCalls: Array<{ body?: { parentID?: string; title?: string; agent?: string } }> = [];
   const promptCalls: Array<{ path: { id: string }; body: MockPromptBody }> = [];
   const deleteCalls: Array<{ path: { id: string } }> = [];
 
@@ -127,7 +127,7 @@ export function makeMockClient(script: Partial<MockClient["__script"]> = {}): Mo
     session: {
       create: async (args: CreateCallArgs) => {
         client.__spy.createCalls.push(
-          args as unknown as { body?: { parentID?: string; title?: string } },
+          args as unknown as { body?: { parentID?: string; title?: string; agent?: string } },
         );
         const session: Session = {
           id: `mock_session_${client.__spy.createCalls.length}`,

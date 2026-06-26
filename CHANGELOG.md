@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/install_signature_e2e.mjs`) spins up a local HTTP server and
   exercises the verify flow against tampered fixtures.
 
+#### Step 3 — `agent` removed from public schema (consensus #3, High)
+
+- **BREAKING**: `agent` is no longer accepted as a tool argument to
+  `moa_fusion`. It can only be set via the `agent` plugin option in
+  `opencode.json`. This closes a privilege-escalation vector where a
+  compromised orchestrator agent could pick an elevated-permission
+  worker profile. The `/moa` slash command never passed `agent` in
+  args, so real-world impact is expected to be zero. A clear Zod error
+  is raised if any orchestrator does try to pass `agent` as a tool
+  argument (the field is silently stripped before `execute()` runs;
+  callers using `moaFusionTool` directly see the `general` default).
+
 ## [1.2.7] - 2026-06-26
 
 ### Fixed (CRITICAL)

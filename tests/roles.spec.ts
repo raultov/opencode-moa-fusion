@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { resolveRoles, resolveTimeoutMs } from "../src/roles.js";
+import { resolveAgent, resolveRoles, resolveTimeoutMs } from "../src/roles.js";
 import { RoleResolutionError } from "../src/types.js";
 import { makeMockClient } from "./_fixtures/mockClient.js";
 
@@ -73,6 +73,36 @@ describe("resolveRoles [Component]", () => {
       }
       expect(err).toBeInstanceOf(RoleResolutionError);
       expect((err as RoleResolutionError).code).toBe("MISSING_ROLES");
+    });
+  });
+});
+
+describe("resolveAgent [Unit]", () => {
+  describe("Scenario: default", () => {
+    it("Given no options When resolveAgent is called Then returns 'general'", () => {
+      expect(resolveAgent({})).toBe("general");
+    });
+
+    it("Given options.agent is undefined When resolveAgent is called Then returns 'general'", () => {
+      expect(resolveAgent({ agent: undefined })).toBe("general");
+    });
+
+    it("Given options.agent is an empty string When resolveAgent is called Then returns the default", () => {
+      expect(resolveAgent({ agent: "" })).toBe("general");
+    });
+
+    it("Given options.agent is a non-string (number) When resolveAgent is called Then returns the default", () => {
+      expect(resolveAgent({ agent: 42 as unknown as string })).toBe("general");
+    });
+  });
+
+  describe("Scenario: explicit", () => {
+    it("Given options.agent='plan' When resolveAgent is called Then returns 'plan'", () => {
+      expect(resolveAgent({ agent: "plan" })).toBe("plan");
+    });
+
+    it("Given a custom fallback When resolveAgent is called Then uses it", () => {
+      expect(resolveAgent({}, "custom")).toBe("custom");
     });
   });
 });
