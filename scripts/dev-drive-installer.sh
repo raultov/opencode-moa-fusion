@@ -44,8 +44,12 @@ echo "[dev-drive-installer] server up at https://127.0.0.1:$PORT (ref=$VERSION)"
 echo "[dev-drive-installer] running install.sh in a fake PTY..."
 
 # Drive the installer with socat providing a PTY. We feed keystrokes via stdin
-# to socat. The keystrokes are: 2<CR> (global), then a few CRs to dismiss the
-# model picker if it appears, then CR to confirm.
+# to socat. The keystrokes are: 2<CR> (global), <CR> (accept default
+# command name), then a few CRs to dismiss the model picker if it appears,
+# then CR to confirm.
+#
+# Override the keystroke sequence (and the expected install path) by
+# setting CMD_NAME=foo before invoking this script.
 #
 # The installer runs `node` internally; the spawned node process inherits our
 # NODE_TLS_REJECT_UNAUTHORIZED=0 so the self-signed cert is accepted.
@@ -53,6 +57,7 @@ echo "[dev-drive-installer] running install.sh in a fake PTY..."
 mkdir -p /tmp/moa-dev-home
 export HOME=/tmp/moa-dev-home
 export NODE_TLS_REJECT_UNAUTHORIZED=0
+CMD_NAME="${CMD_NAME:-}"
 
 cat > /tmp/run-install.sh <<EOF
 #!/usr/bin/env bash
@@ -61,25 +66,40 @@ exec env NODE_TLS_REJECT_UNAUTHORIZED=0 bash "$REPO_ROOT/install.sh" \
     --download-base-url=https://127.0.0.1:$PORT \
     --owner=raultov \
     --repo=opencode-moa-fusion \
-    --version=$SEMVER
+    --version=$SEMVER \
+    ${CMD_NAME:+--command-name="$CMD_NAME"}
 EOF
 chmod +x /tmp/run-install.sh
 
-( sleep 0.3; printf '2\r'; sleep 4; printf '\r\r\r\r' ) | \
-    socat - EXEC:"/tmp/run-install.sh",pty,stderr,setsid,sigint,sane \
+# Build keystroke sequence based on CMD_NAME. We use \r (CR) because the
+# installer's prompts (scopePrompt, multiSelectPrompt) interpret \r as the
+# Enter key in raw mode, and readline treats \r as line terminator too.
+{
+  sleep 0.3
+  printf '2\r'              # global scope
+  sleep 1
+  if [ -n "$CMD_NAME" ]; then
+    printf '%s\r' "$CMD_NAME"   # type the custom command name + CR
+  else
+    printf '\r'             # accept default 'moa'
+  fi
+  sleep 3
+  printf '\r\r\r\r'         # dismiss multi-select
+} | socat - EXEC:"/tmp/run-install.sh",pty,stderr,setsid,sigint,sane \
     2>&1 | tee /tmp/moa-dev-install.log
 
 INSTALL_EXIT=${PIPESTATUS[1]}
 rm -f /tmp/run-install.sh
 
 if grep -q "All done!" /tmp/moa-dev-install.log; then
+    INSTALLED_CMD="${CMD_NAME:-moa}"
     echo ""
     echo "[dev-drive-installer] SUCCESS — installer reached 'All done!'."
     echo "[dev-drive-installer] Resulting ~/.config/opencode/opencode.json:"
     cat ~/.config/opencode/opencode.json 2>/dev/null || echo "(not found)"
     echo ""
-    echo "[dev-drive-installer] /moa command installed?"
-    ls -la ~/.config/opencode/command/moa.md 2>/dev/null || echo "(not found)"
+    echo "[dev-drive-installer] /${INSTALLED_CMD} command installed?"
+    ls -la ~/.config/opencode/command/${INSTALLED_CMD}.md 2>/dev/null || echo "(not found)"
     exit 0
 fi
 

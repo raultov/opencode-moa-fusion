@@ -373,7 +373,7 @@ async function scopePrompt() {
         });
 
         process.stdout.write(`\n${C.bold}${C.blue}opencode-moa-fusion — Interactive Installer${C.reset}\n\n`);
-        process.stdout.write(`Where should the plugin and /moa command be installed?\n`);
+        process.stdout.write(`Where should the plugin and the slash command be installed?\n`);
         process.stdout.write(`  ${C.green}1)${C.reset} Local  — current project  (./.opencode/)\n`);
         process.stdout.write(`  ${C.green}2)${C.reset} Global — current user     (~/.config/opencode/)\n`);
         process.stdout.write(`  ${C.yellow}ESC / q)${C.reset} Cancel\n\n`);
@@ -392,6 +392,64 @@ async function scopePrompt() {
     });
 }
 
+const DEFAULT_COMMAND_NAME = "moa";
+const COMMAND_NAME_RE = /^[a-z][a-z0-9_-]{0,31}$/;
+
+function isValidCommandName(name) {
+    return typeof name === "string" && COMMAND_NAME_RE.test(name);
+}
+
+function normalizeCommandName(input) {
+    if (typeof input !== "string") return null;
+    const trimmed = input.trim().toLowerCase().replace(/^\/+/, "");
+    return isValidCommandName(trimmed) ? trimmed : null;
+}
+
+async function commandNamePrompt(defaultName) {
+    const fallback = normalizeCommandName(defaultName) || DEFAULT_COMMAND_NAME;
+    return new Promise((resolve) => {
+        let settled = false;
+        const settle = (value) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+            terminal: true,
+        });
+        rl.on("close", () => {
+            process.stdout.write("\n");
+            settle(fallback);
+        });
+        const ask = () => {
+            process.stdout.write(`${C.bold}Slash command name${C.reset} ${C.gray}(Enter for ${fallback}): ${C.reset}`);
+            rl.question("", (answer) => {
+                if (answer === undefined) {
+                    rl.close();
+                    return;
+                }
+                const trimmed = answer.trim();
+                if (trimmed === "") {
+                    rl.close();
+                    return;
+                }
+                const normalized = normalizeCommandName(trimmed);
+                if (normalized) {
+                    settle(normalized);
+                    rl.close();
+                    return;
+                }
+                process.stdout.write(`${C.red}Invalid command name "${trimmed}".${C.reset}\n`);
+                process.stdout.write(`${C.gray}  Must start with a letter, then lowercase letters / digits / hyphens / underscores (1-32 chars, no slashes).${C.reset}\n`);
+                ask();
+            });
+        };
+        ask();
+    });
+}
+
 function parseInstallArgs(argv) {
     const opts = {
         skipSignature: false,
@@ -399,6 +457,7 @@ function parseInstallArgs(argv) {
         owner: DEFAULT_OWNER,
         repo: DEFAULT_REPO,
         downloadBaseUrl: null,
+        commandName: null,
     };
     for (const arg of argv) {
         if (arg === "--skip-signature") {
@@ -411,6 +470,8 @@ function parseInstallArgs(argv) {
             opts.repo = arg.slice("--repo=".length);
         } else if (arg.startsWith("--download-base-url=")) {
             opts.downloadBaseUrl = arg.slice("--download-base-url=".length);
+        } else if (arg.startsWith("--command-name=")) {
+            opts.commandName = arg.slice("--command-name=".length);
         }
     }
     return opts;
@@ -446,6 +507,18 @@ async function main() {
     }
 
     const scope = await scopePrompt();
+
+    let commandName;
+    if (installArgs.commandName) {
+        const normalized = normalizeCommandName(installArgs.commandName);
+        if (!normalized) {
+            die(`Invalid --command-name: "${installArgs.commandName}". Must start with a letter, then lowercase letters / digits / hyphens / underscores (1-32 chars, no slashes).`);
+        }
+        commandName = normalized;
+        console.log(`${C.blue}Slash command: /${commandName}${C.reset}`);
+    } else {
+        commandName = await commandNamePrompt(DEFAULT_COMMAND_NAME);
+    }
 
     let version;
     if (installArgs.versionOverride) {
@@ -524,7 +597,7 @@ async function main() {
         try { fs.unlinkSync(mergeScriptPath); } catch {}
     }
 
-    console.log(`\n${C.blue}Downloading /moa command for ${ref}...${C.reset}`);
+    console.log(`\n${C.blue}Downloading /${commandName} command for ${ref}...${C.reset}`);
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-moa-fusion-verify-"));
     const moaTmp = path.join(tmpDir, "moa.md");
     const sumsTmp = path.join(tmpDir, "SHA256SUMS");
@@ -554,17 +627,17 @@ async function main() {
         });
 
         fs.mkdirSync(cmdDir, { recursive: true });
-        const cmdPath = path.join(cmdDir, "moa.md");
+        const cmdPath = path.join(cmdDir, `${commandName}.md`);
         atomicWriteSync(cmdPath, moaMdBytes);
-        console.log(`${C.green}✓ Installed /moa command at ${cmdPath}${C.reset}\n`);
+        console.log(`${C.green}✓ Installed /${commandName} command at ${cmdPath}${C.reset}\n`);
     } catch (e) {
-        die(`Failed to install /moa command: ${e.message}\n` +
-            `No file was written to ${path.join(cmdDir, "moa.md")}.`);
+        die(`Failed to install /${commandName} command: ${e.message}\n` +
+            `No file was written to ${path.join(cmdDir, `${commandName}.md`)}.`);
     } finally {
         try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
     }
 
-    console.log(`${C.bold}All done! Please restart OpenCode to use the /moa command.${C.reset}\n`);
+    console.log(`${C.bold}All done! Please restart OpenCode to use the /${commandName} command.${C.reset}\n`);
 }
 
 main().catch(err => {

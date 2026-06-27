@@ -139,13 +139,18 @@ If you set `workers` in the plugin options (see [Registration](#registration)), 
 
 > **User:** "Use the moa_fusion tool to explain BGP in one paragraph."
 
-### `/moa` Slash Command (recommended)
+### Slash Command (recommended)
 
 To avoid asking the agent to "use the moa_fusion tool" on every prompt, install
-the `/moa` slash command. Once installed, you can invoke the mixture-of-agents
-directly from the OpenCode prompt:
+the slash command. The default name is **`/moa`**, but the interactive
+installer lets you pick any name that matches `/^[a-z][a-z0-9_-]{0,31}$/`
+(lowercase, starts with a letter, ≤ 32 chars). For example: `/team`,
+`/council`, `/mix-3`, `/agents_v2`.
 
-> **User:** `/moa explain BGP in one paragraph`
+Once installed, you can invoke the mixture-of-agents directly from the OpenCode
+prompt:
+
+> **User:** `/moa explain BGP in one paragraph` (or `/team explain BGP …`)
 
 The command instructs the agent to fan out via `moa_fusion`, **report worker
 completion to you** (model name, elapsed time and status per worker), and then
@@ -161,11 +166,40 @@ Workers completed:
 - Worker 3 — openai/gpt-4o-mini — 6210ms — failed: timeout
 ```
 
-> **Note:** If you used the interactive one-line installer from the `Installation` section, the `/moa` command was already installed for you.
+#### Choosing the command name
+
+The interactive installer (`install.sh` / `install.ps1`) prompts for the
+command name after the scope selection. Just press **Enter** to accept the
+default `moa`, or type a different name. Invalid input is rejected with a
+clear message and the prompt is shown again:
+
+```
+Slash command name (Enter for moa): team
+Downloading /team command for v1.3.0...
+✓ Installed /team command at ~/.config/opencode/command/team.md
+```
+
+For non-interactive installs (CI, scripted rollouts), pass
+`--command-name=<name>`:
+
+```bash
+bash install.sh --skip-signature --command-name=council …
+```
+
+Rules enforced for the command name:
+
+- Must start with a lowercase ASCII letter.
+- Remaining characters: lowercase ASCII letters, digits, `-`, or `_`.
+- 1–32 characters total.
+- Leading `/` is stripped automatically (so `/team` is accepted as `team`).
+
+> **Note:** If you used the interactive one-line installer from the `Installation` section, the slash command was already installed for you.
 
 **Manual installation:** copy [`commands/moa.md`](commands/moa.md) into
-`~/.config/opencode/command/moa.md` (global) or `./.opencode/command/moa.md`
-(project-local).
+`~/.config/opencode/command/<your-name>.md` (global) or
+`./.opencode/command/<your-name>.md` (project-local). The file contents are
+identical regardless of the chosen command name — the name only affects which
+filename OpenCode picks up.
 
 > **Note:** the `/moa` command only triggers the agent to call `moa_fusion`. The
 > plugin itself must still be registered and loaded via your `opencode.json`
