@@ -218,5 +218,67 @@ describe("callModel [Component]", () => {
       }
       expect(client.__spy.deleteCalls).toHaveLength(0);
     });
+
+    it("Given signal already aborted before call When callModel is called Then returns aborted error (M6 / TOCTOU)", async () => {
+      const ac = new AbortController();
+      ac.abort();
+      const client = makeMockClient({
+        onPrompt: async () => ({ parts: [] }),
+      });
+      const result = await callModel({
+        client,
+        parentID: "p1",
+        model: { providerID: "p", modelID: "m" },
+        text: "t",
+        abort: ac.signal,
+        timeoutMs: 1000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toBe("aborted");
+      }
+    });
+  });
+
+  describe("Scenario: error messages are sanitized (M1 / information leak)", () => {
+    it("Given prompt rejects with an error containing a filesystem path When callModel is called Then the error is sanitized", async () => {
+      const client = makeMockClient({
+        onPrompt: async () => {
+          throw new Error("EACCES: /Users/victim/.opencode/sessions/abc.json");
+        },
+      });
+      const result = await callModel({
+        client,
+        parentID: "p1",
+        model: { providerID: "p", modelID: "m" },
+        text: "t",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).not.toContain("/Users/victim");
+        expect(result.error).toContain("<path>");
+      }
+    });
+
+    it("Given session.create rejects with a path-bearing error When callModel is called Then the error is sanitized", async () => {
+      const client = makeMockClient();
+      client.session.create = async () => {
+        throw new Error("cannot create session at /home/user/.config/opencode/x");
+      };
+      const result = await callModel({
+        client,
+        parentID: "p1",
+        model: { providerID: "p", modelID: "m" },
+        text: "t",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).not.toContain("/home/user");
+      }
+    });
   });
 });

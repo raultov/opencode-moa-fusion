@@ -111,13 +111,9 @@ describe("install-merge-config.mjs [CLI]", () => {
       ]);
       expect(r.status).toBe(0);
 
-      const bakFiles = fs
-        .readdirSync(tmpDir)
-        .filter((f) => f.startsWith("opencode.json.bak."));
+      const bakFiles = fs.readdirSync(tmpDir).filter((f) => f.startsWith("opencode.json.bak."));
       expect(bakFiles.length).toBe(1);
-      const backup = JSON.parse(
-        fs.readFileSync(path.join(tmpDir, bakFiles[0]), "utf-8"),
-      );
+      const backup = JSON.parse(fs.readFileSync(path.join(tmpDir, bakFiles[0]), "utf-8"));
       expect(backup).toEqual(original);
     });
 
@@ -147,10 +143,7 @@ describe("install-merge-config.mjs [CLI]", () => {
     });
 
     it("Given an existing moa-fusion entry as a bare string When merge runs Then it is replaced with the new spec", () => {
-      fs.writeFileSync(
-        configPath,
-        JSON.stringify({ plugin: ["opencode-moa-fusion@1.0.0"] }),
-      );
+      fs.writeFileSync(configPath, JSON.stringify({ plugin: ["opencode-moa-fusion@1.0.0"] }));
 
       const r = runScript([
         `--config-path=${configPath}`,
@@ -160,9 +153,7 @@ describe("install-merge-config.mjs [CLI]", () => {
       expect(r.status).toBe(0);
 
       const written = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      expect(written.plugin).toEqual([
-        ["opencode-moa-fusion@1.2.7", { workers: ["x/y"] }],
-      ]);
+      expect(written.plugin).toEqual([["opencode-moa-fusion@1.2.7", { workers: ["x/y"] }]]);
     });
   });
 
@@ -213,10 +204,7 @@ describe("install-merge-config.mjs [CLI]", () => {
 
     it("Given a // inside a string value When merge runs Then the comment-like text is preserved verbatim", () => {
       // The string-aware stripper must not eat the // inside "https://...".
-      fs.writeFileSync(
-        configPath,
-        JSON.stringify({ model: "https://example.com/foo" }),
-      );
+      fs.writeFileSync(configPath, JSON.stringify({ model: "https://example.com/foo" }));
       const r = runScript([
         `--config-path=${configPath}`,
         `--plugin-spec=opencode-moa-fusion@1.2.7`,
@@ -274,6 +262,34 @@ describe("install-merge-config.mjs [CLI]", () => {
       const r = runScript([]);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain("Usage:");
+    });
+  });
+
+  describe("Scenario: opencode.json write is atomic (M3 / TOCTOU)", () => {
+    it("Given a successful merge When merge runs Then no .tmp.* leftover files remain next to opencode.json", () => {
+      const r = runScript([
+        `--config-path=${configPath}`,
+        `--plugin-spec=opencode-moa-fusion@1.2.7`,
+      ]);
+      expect(r.status).toBe(0);
+      const entries = fs.readdirSync(tmpDir);
+      const leftovers = entries.filter((e) => e.includes(".tmp."));
+      expect(leftovers).toEqual([]);
+    });
+
+    it("Given an existing config overwritten by merge When merge runs Then the new content is final and no tmp file remains", () => {
+      fs.writeFileSync(configPath, JSON.stringify({ model: "old/model" }));
+      const r = runScript([
+        `--config-path=${configPath}`,
+        `--plugin-spec=opencode-moa-fusion@1.2.7`,
+      ]);
+      expect(r.status).toBe(0);
+      const written = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      expect(written.model).toBe("old/model");
+      expect(written.plugin).toEqual(["opencode-moa-fusion@1.2.7"]);
+      const entries = fs.readdirSync(tmpDir);
+      const leftovers = entries.filter((e) => e.includes(".tmp."));
+      expect(leftovers).toEqual([]);
     });
   });
 });

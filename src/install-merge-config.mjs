@@ -186,7 +186,15 @@ function main() {
   }
 
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
-  fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + "\n");
+  const tmpPath = `${configPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+  const fd = fs.openSync(tmpPath, "w");
+  try {
+    fs.writeSync(fd, JSON.stringify(cfg, null, 2) + "\n");
+    try { fs.fsyncSync(fd); } catch (_e) { /* fsync may not be supported */ }
+  } finally {
+    fs.closeSync(fd);
+  }
+  fs.renameSync(tmpPath, configPath);
   process.stdout.write(`[install-merge-config] wrote ${configPath}\n`);
   process.stdout.write(
     `[install-merge-config] final top-level keys: ${Object.keys(cfg).join(", ")}\n`,

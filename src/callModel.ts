@@ -1,5 +1,6 @@
 import type { AssistantMessage, OpencodeClient, Part } from "@opencode-ai/sdk";
 import { partsToText } from "./extract.js";
+import { sanitizeErrorMessage } from "./sanitize.js";
 import type { ModelRef, WorkerResult } from "./types.js";
 
 type SessionCreateBody = NonNullable<Parameters<OpencodeClient["session"]["create"]>[0]>["body"];
@@ -71,8 +72,8 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
 
     const ac = new AbortController();
     const onOuterAbort = () => ac.abort(new Error("aborted"));
-    if (opts.abort.aborted) onOuterAbort();
     opts.abort.addEventListener("abort", onOuterAbort);
+    if (opts.abort.aborted) onOuterAbort();
 
     const timeoutId = setTimeout(() => ac.abort(new Error("timeout")), opts.timeoutMs);
 
@@ -83,9 +84,7 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
     // If the caller passes their own opts.system, we append it after, so
     // the read-only directive always wins (defence in depth against
     // prompt injection that reaches the system channel).
-    const system = opts.system
-      ? `${READ_ONLY_DIRECTIVE}\n\n${opts.system}`
-      : READ_ONLY_DIRECTIVE;
+    const system = opts.system ? `${READ_ONLY_DIRECTIVE}\n\n${opts.system}` : READ_ONLY_DIRECTIVE;
 
     try {
       promptRes = await opts.client.session.prompt({
@@ -109,15 +108,11 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
     let errStr: string | undefined;
 
     if (ac.signal.aborted) {
-      errStr =
-        ac.signal.reason instanceof Error
-          ? ac.signal.reason.message
-          : String(ac.signal.reason || "aborted");
+      errStr = sanitizeErrorMessage(ac.signal.reason || "aborted");
     } else if (promptError) {
-      errStr = promptError instanceof Error ? promptError.message : String(promptError);
+      errStr = sanitizeErrorMessage(promptError);
     } else if (promptRes?.error) {
-      errStr =
-        typeof promptRes.error === "string" ? promptRes.error : JSON.stringify(promptRes.error);
+      errStr = sanitizeErrorMessage(promptRes.error);
     }
 
     if (errStr !== undefined) {
@@ -144,7 +139,7 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
     return {
       ok: false,
       model: modelStr,
-      error: e instanceof Error ? e.message : String(e),
+      error: sanitizeErrorMessage(e),
       elapsedMs: Date.now() - start,
     };
   }

@@ -141,7 +141,8 @@ function commandExists(cmd) {
 
 async function runCommand(cmd, args) {
     return new Promise((resolve, reject) => {
-        const proc = cp.spawn(cmd, args, { stdio: "inherit", shell: true });
+        const proc = cp.spawn(cmd, args, { stdio: "inherit", shell: false });
+        proc.on("error", reject);
         proc.on("close", (code) => {
             if (code === 0) resolve();
             else reject(new Error(`Command ${cmd} exited with ${code}`));
@@ -152,11 +153,14 @@ async function runCommand(cmd, args) {
 async function captureCommand(cmd, args) {
     return new Promise((resolve, reject) => {
         let out = "";
-        const proc = cp.spawn(cmd, args, { shell: true });
+        let err = "";
+        const proc = cp.spawn(cmd, args, { shell: false });
         proc.stdout.on("data", d => out += d.toString());
+        proc.stderr.on("data", d => err += d.toString());
+        proc.on("error", reject);
         proc.on("close", (code) => {
             if (code === 0) resolve(out.trim());
-            else reject(new Error(`Command ${cmd} exited with ${code}`));
+            else reject(new Error(`Command ${cmd} exited with ${code}: ${err.trim() || out.trim()}`));
         });
     });
 }
@@ -446,16 +450,17 @@ async function main() {
     let version;
     if (installArgs.versionOverride) {
         version = installArgs.versionOverride;
-        if (!SEMVER_RE.test(version)) {
+        if (typeof version !== "string" || version.length === 0 || version.length > 64 || !SEMVER_RE.test(version)) {
             die(`Invalid --version: "${version}". Expected semver like 1.2.7 or 1.3.0-rc.1.`);
         }
     } else {
         console.log(`${C.blue}Fetching latest version of opencode-moa-fusion from npm...${C.reset}`);
         try {
-            version = await captureCommand("npm", ["view", "opencode-moa-fusion", "version"]);
-            if (!SEMVER_RE.test(version)) {
-                die(`npm returned a non-semver version: "${version}". Refusing to install.`);
+            const rawVersion = await captureCommand("npm", ["view", "opencode-moa-fusion", "version"]);
+            if (typeof rawVersion !== "string" || rawVersion.length === 0 || rawVersion.length > 64 || !SEMVER_RE.test(rawVersion)) {
+                die(`npm returned a non-semver version: "${rawVersion}". Refusing to install.`);
             }
+            version = rawVersion;
             console.log(`${C.green}Found version ${version}${C.reset}`);
         } catch (e) {
             die(`Failed to fetch version from npm: ${e.message}\nRe-run with --version=<semver> if the registry is unreachable.`);
