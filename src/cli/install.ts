@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // src/cli/install.ts
 //
 // Interactive installer for opencode-moa-fusion. Shipped as the `bin` of
@@ -10,14 +11,14 @@
 // transparently, so providers requiring API keys / custom base URLs work
 // without special wiring.
 
+import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
-import { fileURLToPath } from "node:url";
-import { spawn, execSync } from "node:child_process";
-import readline from "node:readline";
 import { createRequire } from "node:module";
-import { normalizeCommandName, DEFAULT_COMMAND_NAME } from "../commandName.js";
+import os from "node:os";
+import path from "node:path";
+import readline from "node:readline";
+import { fileURLToPath } from "node:url";
+import { DEFAULT_COMMAND_NAME, normalizeCommandName } from "../commandName.js";
 
 const require_ = createRequire(import.meta.url);
 const pkg = require_("../../package.json") as { version: string };
@@ -107,12 +108,8 @@ async function scopePrompt(): Promise<"local" | "global"> {
     process.stdout.write(
       `\n${C.bold}${C.blue}opencode-moa-fusion — Interactive Installer${C.reset}\n\n`,
     );
-    process.stdout.write(
-      `Where should the plugin and the slash command be installed?\n`,
-    );
-    process.stdout.write(
-      `  ${C.green}1)${C.reset} Local  — current project  (./.opencode/)\n`,
-    );
+    process.stdout.write(`Where should the plugin and the slash command be installed?\n`);
+    process.stdout.write(`  ${C.green}1)${C.reset} Local  — current project  (./.opencode/)\n`);
     process.stdout.write(
       `  ${C.green}2)${C.reset} Global — current user     (~/.config/opencode/)\n`,
     );
@@ -143,8 +140,7 @@ async function scopePrompt(): Promise<"local" | "global"> {
 }
 
 async function commandNamePrompt(defaultName: string): Promise<string> {
-  const fallback =
-    normalizeCommandName(defaultName) ?? DEFAULT_COMMAND_NAME;
+  const fallback = normalizeCommandName(defaultName) ?? DEFAULT_COMMAND_NAME;
   return new Promise((resolve) => {
     let settled = false;
     const settle = (value: string) => {
@@ -177,9 +173,7 @@ async function commandNamePrompt(defaultName: string): Promise<string> {
             rl.close();
             return;
           }
-          process.stdout.write(
-            `${C.red}Invalid command name "${trimmed}".${C.reset}\n`,
-          );
+          process.stdout.write(`${C.red}Invalid command name "${trimmed}".${C.reset}\n`);
           process.stdout.write(
             `${C.gray}  Must start with a letter, then lowercase letters / digits / hyphens / underscores (1-32 chars, no slashes).${C.reset}\n`,
           );
@@ -207,11 +201,8 @@ async function multiSelectPrompt(models: string[]): Promise<string[]> {
     let filter = "";
 
     const render = () => {
-      const filtered = models.filter((m) =>
-        m.toLowerCase().includes(filter.toLowerCase()),
-      );
-      if (cursorY >= filtered.length && filtered.length > 0)
-        cursorY = filtered.length - 1;
+      const filtered = models.filter((m) => m.toLowerCase().includes(filter.toLowerCase()));
+      if (cursorY >= filtered.length && filtered.length > 0) cursorY = filtered.length - 1;
       if (filtered.length === 0) cursorY = 0;
 
       let out = `\n${C.bold}Select worker models (arrows=move, SPACE=select, Enter=confirm, type=filter)${C.reset}\n`;
@@ -219,7 +210,7 @@ async function multiSelectPrompt(models: string[]): Promise<string[]> {
 
       const maxVisible = 15;
       let startIdx = Math.max(0, cursorY - Math.floor(maxVisible / 2));
-      let endIdx = Math.min(filtered.length, startIdx + maxVisible);
+      const endIdx = Math.min(filtered.length, startIdx + maxVisible);
       if (endIdx - startIdx < maxVisible) {
         startIdx = Math.max(0, endIdx - maxVisible);
       }
@@ -242,9 +233,7 @@ async function multiSelectPrompt(models: string[]): Promise<string[]> {
     };
 
     const onKeypress = (str: string, key: readline.Key) => {
-      const filtered = models.filter((m) =>
-        m.toLowerCase().includes(filter.toLowerCase()),
-      );
+      const filtered = models.filter((m) => m.toLowerCase().includes(filter.toLowerCase()));
 
       if (key.name === "return") {
         process.stdin.removeListener("keypress", onKeypress);
@@ -334,8 +323,7 @@ async function main(): Promise<void> {
   const needsInteraction = args.scope === null || args.commandName === null;
   if (needsInteraction) ensureInteractiveTTY();
 
-  const scope: "local" | "global" =
-    args.scope ?? (await scopePrompt());
+  const scope: "local" | "global" = args.scope ?? (await scopePrompt());
 
   let commandName: string;
   if (args.commandName !== null) {
@@ -348,9 +336,7 @@ async function main(): Promise<void> {
     commandName = normalized;
     if (args.scope !== null) {
       // fully non-interactive: skip the header that scopePrompt would print
-      console.log(
-        `${C.blue}Scope: ${scope} | Slash command: /${commandName}${C.reset}`,
-      );
+      console.log(`${C.blue}Scope: ${scope} | Slash command: /${commandName}${C.reset}`);
     } else {
       console.log(`${C.blue}Slash command: /${commandName}${C.reset}`);
     }
@@ -358,9 +344,7 @@ async function main(): Promise<void> {
     commandName = await commandNamePrompt(DEFAULT_COMMAND_NAME);
   }
 
-  const xdgConfig =
-    process.env["XDG_CONFIG_HOME"] ??
-    path.join(os.homedir(), ".config");
+  const xdgConfig = process.env["XDG_CONFIG_HOME"] ?? path.join(os.homedir(), ".config");
   const configPath =
     scope === "global"
       ? path.join(xdgConfig, "opencode", "opencode.json")
@@ -384,11 +368,7 @@ async function main(): Promise<void> {
 
   console.log(`\n${C.blue}Merging plugin entry...${C.reset}`);
   try {
-    await runMergeConfig(
-      configPath,
-      `opencode-moa-fusion@${VERSION}`,
-      workers,
-    );
+    await runMergeConfig(configPath, `opencode-moa-fusion@${VERSION}`, workers);
     console.log(`\n${C.green}✓ Updated ${configPath}${C.reset}`);
   } catch (e) {
     die(
@@ -400,13 +380,9 @@ async function main(): Promise<void> {
   try {
     const cmdPath = path.join(cmdDir, `${commandName}.md`);
     atomicWriteSync(cmdPath, fs.readFileSync(MOA_MD_SOURCE));
-    console.log(
-      `${C.green}✓ Installed /${commandName} command at ${cmdPath}${C.reset}\n`,
-    );
+    console.log(`${C.green}✓ Installed /${commandName} command at ${cmdPath}${C.reset}\n`);
   } catch (e) {
-    die(
-      `Failed to install /${commandName} command: ${(e as Error).message}`,
-    );
+    die(`Failed to install /${commandName} command: ${(e as Error).message}`);
   }
 
   console.log(
@@ -415,7 +391,10 @@ async function main(): Promise<void> {
 }
 
 // Only run when executed directly, not when imported by tests
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Resolve symlinks to handle npm bin/npx wrappers correctly
+const isMain = process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
   main().catch((err) => {
     console.error(`${C.red}${(err as Error).message ?? err}${C.reset}`);
     process.exit(1);
