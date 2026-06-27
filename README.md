@@ -14,50 +14,43 @@ A Mixture-of-Agents (MoA) plugin for [OpenCode](https://github.com/opencode-ai/o
 ## Installation
 
 ```bash
-# Linux, macOS, Windows (todas las shells)
+# Linux, macOS, Windows (all shells)
 npx opencode-moa-fusion@latest
 ```
 
-El instalador interactivo te preguntará:
-1. Scope: local (`./opencode.json`) o global (`~/.config/opencode/opencode.json`).
-2. Nombre del slash command (default: `moa`).
-3. Selección multi-selección de los modelos worker desde `opencode models`.
+The interactive installer will ask you for:
+1. Scope: local (`./opencode.json`) or global (`~/.config/opencode/opencode.json`).
+2. Slash command name (default: `moa`).
+3. Multi-selection of worker models from your `opencode models` list.
 
-Luego mergea la entrada del plugin en tu `opencode.json` (con backup
-timestamped) e instala el slash command en el directorio correspondiente.
+It will then merge the plugin entry into your `opencode.json` (creating a timestamped backup) and install the slash command into the appropriate directory.
 
-### Variables de entorno para providers custom
+### Environment variables for custom providers
 
-Las env-vars en la línea de `npx` se heredan al subproceso `opencode models`,
-así que provedores que requieran credenciales o base URLs custom funcionan
-directamente:
+Any environment variables passed to the `npx` command are inherited by the `opencode models` subprocess. This means providers requiring API keys or custom base URLs work directly:
 
 ```bash
 ANTHROPIC_API_KEY=x ANTHROPIC_BASE_URL=http://127.0.0.1:3456 \
   npx opencode-moa-fusion@latest
 ```
 
-### Modo no interactivo (CI / dotfiles)
+### Non-interactive mode (CI / dotfiles)
 
 ```bash
 npx opencode-moa-fusion@latest --command-name=council
 ```
 
-`--command-name` acepta `^[a-z][a-z0-9_-]{0,31}$` (igual que antes).
+The `--command-name` flag accepts `^[a-z][a-z0-9_-]{0,31}$`.
 
-### Pinning de versión
+### Version pinning
 
-`npx opencode-moa-fusion@<version>` pinea la versión del instalador, y esa
-misma versión es la que queda escrita en `opencode.json` como
-`opencode-moa-fusion@<version>`. Ver §Registration sobre por qué nunca usar
-`@latest` _en el `opencode.json` final_ (lo de `npx` arriba es solo para
-ejecutar el instalador una vez).
+Running `npx opencode-moa-fusion@<version>` pins the installer version, and that exact version is what gets written into your `opencode.json` as `opencode-moa-fusion@<version>`. See §Registration for why you should never use `@latest` _inside the final `opencode.json`_ (the `@latest` in the `npx` command above is just to run the installer once).
 
-### Instalación manual del runtime
+### Manual runtime installation
 
 ```bash
 npm install -g opencode-moa-fusion@1.3.5
-# o
+# or
 bun add -g opencode-moa-fusion@1.3.5
 ```
 
@@ -183,19 +176,15 @@ Workers completed:
 
 #### Choosing the command name
 
-El instalador interactivo te pregunta por el
-nombre del comando tras elegir el scope. Simplemente pulsa **Enter** para aceptar el
-default `moa`, o escribe otro nombre. Entradas inválidas se rechazan con un
-mensaje claro y se vuelve a preguntar:
+The interactive installer prompts for the command name after the scope selection. Just press **Enter** to accept the default `moa`, or type a different name. Invalid input is rejected with a clear message and you are prompted again:
 
 ```
-Slash command name (Enter for moa): team
+Slash command name (Enter for /moa): team
 Installing /team command...
 ✓ Installed /team command at ~/.config/opencode/command/team.md
 ```
 
-Para instalaciones no interactivas (CI, dotfiles), pasa
-`--command-name=<name>`:
+For non-interactive installations (CI, scripted rollouts), pass `--command-name=<name>`:
 
 ```bash
 npx opencode-moa-fusion@latest --command-name=council
@@ -208,7 +197,7 @@ Rules enforced for the command name:
 - 1–32 characters total.
 - Leading `/` is stripped automatically (so `/team` is accepted as `team`).
 
-> **Note:** Si usaste el instalador `npx opencode-moa-fusion` de la sección `Installation`, el slash command ya se instaló para ti.
+> **Note:** If you used the `npx opencode-moa-fusion` installer from the `Installation` section, the slash command was already installed for you.
 
 **Manual installation:** copy [`commands/moa.md`](commands/moa.md) into
 `~/.config/opencode/command/<your-name>.md` (global) or
