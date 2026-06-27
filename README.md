@@ -13,36 +13,51 @@ A Mixture-of-Agents (MoA) plugin for [OpenCode](https://github.com/opencode-ai/o
 
 ## Installation
 
-**One-line installer (recommended):**
+```bash
+# Linux, macOS, Windows (todas las shells)
+npx opencode-moa-fusion@latest
+```
 
-Linux & macOS (bash, also works under WSL and Git Bash on Windows):
+El instalador interactivo te preguntará:
+1. Scope: local (`./opencode.json`) o global (`~/.config/opencode/opencode.json`).
+2. Nombre del slash command (default: `moa`).
+3. Selección multi-selección de los modelos worker desde `opencode models`.
+
+Luego mergea la entrada del plugin en tu `opencode.json` (con backup
+timestamped) e instala el slash command en el directorio correspondiente.
+
+### Variables de entorno para providers custom
+
+Las env-vars en la línea de `npx` se heredan al subproceso `opencode models`,
+así que provedores que requieran credenciales o base URLs custom funcionan
+directamente:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash
+ANTHROPIC_API_KEY=x ANTHROPIC_BASE_URL=http://127.0.0.1:3456 \
+  npx opencode-moa-fusion@latest
 ```
 
-Windows (PowerShell 5.1+ on Windows 10+, or PowerShell 7+ everywhere):
+### Modo no interactivo (CI / dotfiles)
 
-```powershell
-irm https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.ps1 | iex
+```bash
+npx opencode-moa-fusion@latest --command-name=council
 ```
 
-Both installers will interactively ask whether you want to install it for the current project (`./opencode.json`) or globally (`~/.config/opencode/opencode.json`), and then prompt for the slash command name (default: `moa` — just press Enter to accept, or type a different name). They will also automatically show you a menu to select the background worker models from your available OpenCode providers. The two installers share the exact same Node.js logic; only the bootstrap wrapper differs.
+`--command-name` acepta `^[a-z][a-z0-9_-]{0,31}$` (igual que antes).
 
-> **Disclaimer on model selection:** The interactive installer runs `opencode models` internally to fetch your available models. If you use custom providers or plugins that require specific environment variables to be set to expose their models, those models might not appear in the installer's list. If you are passing variables in the same line as the curl pipeline, make sure you put them before the `bash` command, not before `curl` (e.g., `curl -fsSL <url> | ANTHROPIC_API_KEY=x bash`), or export them first (`export ANTHROPIC_API_KEY=x && curl -fsSL <url> | bash`). Otherwise, the installer cannot foresee these runtime environments, but you can always add the missing models manually to your `opencode.json` after installation.
+### Pinning de versión
 
-> **Windows note:** the PowerShell installer needs an interactive terminal. The `irm | iex` form works in Windows Terminal / PowerShell 7. If your shell complains about no TTY, download the script first and run it directly:
->
-> ```powershell
-> irm https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.ps1 -OutFile install.ps1
-> .\install.ps1
-> ```
+`npx opencode-moa-fusion@<version>` pinea la versión del instalador, y esa
+misma versión es la que queda escrita en `opencode.json` como
+`opencode-moa-fusion@<version>`. Ver §Registration sobre por qué nunca usar
+`@latest` _en el `opencode.json` final_ (lo de `npx` arriba es solo para
+ejecutar el instalador una vez).
 
-Alternatively, you can install the plugin manually via `npm` or `bun`:
+### Instalación manual del runtime
 
 ```bash
 npm install -g opencode-moa-fusion
-# or
+# o
 bun add -g opencode-moa-fusion
 ```
 
@@ -168,22 +183,22 @@ Workers completed:
 
 #### Choosing the command name
 
-The interactive installer (`install.sh` / `install.ps1`) prompts for the
-command name after the scope selection. Just press **Enter** to accept the
-default `moa`, or type a different name. Invalid input is rejected with a
-clear message and the prompt is shown again:
+El instalador interactivo te pregunta por el
+nombre del comando tras elegir el scope. Simplemente pulsa **Enter** para aceptar el
+default `moa`, o escribe otro nombre. Entradas inválidas se rechazan con un
+mensaje claro y se vuelve a preguntar:
 
 ```
 Slash command name (Enter for moa): team
-Downloading /team command for v1.3.0...
+Installing /team command...
 ✓ Installed /team command at ~/.config/opencode/command/team.md
 ```
 
-For non-interactive installs (CI, scripted rollouts), pass
+Para instalaciones no interactivas (CI, dotfiles), pasa
 `--command-name=<name>`:
 
 ```bash
-bash install.sh --skip-signature --command-name=council …
+npx opencode-moa-fusion@latest --command-name=council
 ```
 
 Rules enforced for the command name:
@@ -193,7 +208,7 @@ Rules enforced for the command name:
 - 1–32 characters total.
 - Leading `/` is stripped automatically (so `/team` is accepted as `team`).
 
-> **Note:** If you used the interactive one-line installer from the `Installation` section, the slash command was already installed for you.
+> **Note:** Si usaste el instalador `npx opencode-moa-fusion` de la sección `Installation`, el slash command ya se instaló para ti.
 
 **Manual installation:** copy [`commands/moa.md`](commands/moa.md) into
 `~/.config/opencode/command/<your-name>.md` (global) or

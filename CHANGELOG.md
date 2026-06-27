@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-27
+
+### Breaking changes
+
+- **Installation moved to `npx opencode-moa-fusion`**. The `install.sh` /
+  `install.ps1` one-liners have been removed. Old usage:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/raultov/opencode-moa-fusion/main/install.sh | bash
+  ```
+  New usage (works on Linux, macOS, Windows):
+  ```bash
+  npx opencode-moa-fusion@latest
+  ```
+- Sigstore / cosign signature verification removed. The installer no longer
+  downloads `moa.md` from a GitHub Release — it reads it from the installed npm
+  package, whose integrity is verified by npm itself.
+- Flags removed from the installer: `--owner`, `--repo`, `--version`,
+  `--download-base-url`, `--skip-signature`. Flag kept: `--command-name`.
+
+### Migration
+
+Old:
+```bash
+curl -fsSL https://.../install.sh | ANTHROPIC_API_KEY=x bash -s -- --skip-signature
+```
+New:
+```bash
+ANTHROPIC_API_KEY=x npx opencode-moa-fusion@latest
+```
+
 ## [1.3.0] - 2026-06-27
 
 ### Security (PR `security/hardening-2026-06`)
