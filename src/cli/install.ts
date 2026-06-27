@@ -156,7 +156,7 @@ async function commandNamePrompt(defaultName: string): Promise<string> {
       });
       rl.on("close", () => settle(fallback));
       rl.question(
-        `${C.bold}Slash command name${C.reset} ${C.gray}(Enter for ${fallback}): ${C.reset}`,
+        `${C.bold}Slash command name${C.reset} ${C.gray}(Enter for /${fallback}): ${C.reset}`,
         (answer) => {
           if (answer === undefined) {
             rl.close();
