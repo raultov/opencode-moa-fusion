@@ -31,7 +31,7 @@ This document describes the maintainer-only release flow.
 ## Tagging
 
 - The `npx` installer is directly tied to the npm version published.
-- Pre-release tags (`v1.4.0-rc.1`) are fine; npm will mark them as pre-releases automatically.
+- Pre-release tags (`v1.3.5-rc.1`) are fine; npm will mark them as pre-releases automatically.
 
 ## Required permissions on the GitHub org
 

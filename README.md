@@ -56,9 +56,9 @@ ejecutar el instalador una vez).
 ### Instalación manual del runtime
 
 ```bash
-npm install -g opencode-moa-fusion
+npm install -g opencode-moa-fusion@1.3.5
 # o
-bun add -g opencode-moa-fusion
+bun add -g opencode-moa-fusion@1.3.5
 ```
 
 ### Installation issues in corporate environments
