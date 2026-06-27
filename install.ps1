@@ -361,25 +361,25 @@ async function scopePrompt() {
         const rl = readline.createInterface({
             input: process.stdin,
             output: process.stdout,
-            terminal: true
+            terminal: true,
         });
-
         process.stdout.write(`\n${C.bold}${C.blue}opencode-moa-fusion — Interactive Installer${C.reset}\n\n`);
         process.stdout.write(`Where should the plugin and the slash command be installed?\n`);
         process.stdout.write(`  ${C.green}1)${C.reset} Local  — current project  (./.opencode/)\n`);
         process.stdout.write(`  ${C.green}2)${C.reset} Global — current user     (~/.config/opencode/)\n`);
         process.stdout.write(`  ${C.yellow}ESC / q)${C.reset} Cancel\n\n`);
-        process.stdout.write("Choice: ");
+        process.stdout.write(`Choice (1 or 2): `);
 
-        process.stdin.setRawMode(true);
-        process.stdin.once("keypress", (str, key) => {
-            process.stdin.setRawMode(false);
-            process.stdout.write(str + "\n\n");
+        rl.question("", (answer) => {
             rl.close();
-
-            if (str === "1") resolve("local");
-            else if (str === "2") resolve("global");
-            else process.exit(0);
+            const v = (answer || "").trim().toLowerCase();
+            if (v === "1" || v === "local") resolve("local");
+            else if (v === "2" || v === "global") resolve("global");
+            else if (v === "q" || v === "quit" || v === "cancel") process.exit(0);
+            else {
+                process.stdout.write(`${C.red}Invalid choice "${answer}". Expected 1 or 2.${C.reset}\n`);
+                resolve(scopePrompt());
+            }
         });
     });
 }
