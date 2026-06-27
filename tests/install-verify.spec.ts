@@ -22,7 +22,8 @@ describe("install-verify [Unit]", () => {
       expect(ALLOWED_HOSTS.has("github.com")).toBe(true);
       expect(ALLOWED_HOSTS.has("objects.githubusercontent.com")).toBe(true);
       expect(ALLOWED_HOSTS.has("raw.githubusercontent.com")).toBe(true);
-      expect(ALLOWED_HOSTS.size).toBe(3);
+      expect(ALLOWED_HOSTS.has("release-assets.githubusercontent.com")).toBe(true);
+      expect(ALLOWED_HOSTS.size).toBe(4);
     });
   });
 

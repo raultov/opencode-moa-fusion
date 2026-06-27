@@ -65,6 +65,7 @@ const ALLOWED_HOSTS = new Set([
   "github.com",
   "objects.githubusercontent.com",
   "raw.githubusercontent.com",
+  "release-assets.githubusercontent.com",
 ]);
 const SEMVER_RE = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
 const TAG_RE = /^v\d+\.\d+\.\d+(-[\w.]+)?$/;

@@ -289,6 +289,7 @@ const ALLOWED_HOSTS = new Set([
   "raw.githubusercontent.com",
   "objects.githubusercontent.com",
   "github.com",
+  "release-assets.githubusercontent.com",
 ]);
 
 function fetchUrl(url, redirects = 0) {
