@@ -272,17 +272,6 @@ Worker sessions persist after completion so you can review their reasoning. If y
 - Manually delete child sessions via the TUI
 - Or use the SDK: `client.session.delete({ path: { id: childSessionID } })`
 
-## Examples
-
-See `examples/` for runnable scripts:
-- `examples/run-moa-server.ts`: Basic usage with the SDK
-- `examples/ask-moa.ts`: Using the tool with file context
-
-Run with:
-```bash
-npx tsx examples/run-moa-server.ts
-```
-
 ## Development
 
 ### Scripts
