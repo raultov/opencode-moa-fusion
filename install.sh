@@ -366,29 +366,31 @@ async function multiSelectPrompt(models) {
 
 async function scopePrompt() {
     return new Promise((resolve) => {
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-            terminal: true,
-        });
         process.stdout.write(`\n${C.bold}${C.blue}opencode-moa-fusion — Interactive Installer${C.reset}\n\n`);
         process.stdout.write(`Where should the plugin and the slash command be installed?\n`);
         process.stdout.write(`  ${C.green}1)${C.reset} Local  — current project  (./.opencode/)\n`);
         process.stdout.write(`  ${C.green}2)${C.reset} Global — current user     (~/.config/opencode/)\n`);
-        process.stdout.write(`  ${C.yellow}ESC / q)${C.reset} Cancel\n\n`);
-        process.stdout.write(`Choice (1 or 2): `);
+        process.stdout.write(`  ${C.yellow}q${C.reset}) Cancel\n\n`);
 
-        rl.question("", (answer) => {
-            rl.close();
-            const v = (answer || "").trim().toLowerCase();
-            if (v === "1" || v === "local") resolve("local");
-            else if (v === "2" || v === "global") resolve("global");
-            else if (v === "q" || v === "quit" || v === "cancel") process.exit(0);
-            else {
-                process.stdout.write(`${C.red}Invalid choice "${answer}". Expected 1 or 2.${C.reset}\n`);
-                resolve(scopePrompt());
-            }
-        });
+        const ask = () => {
+            const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout,
+                terminal: true,
+            });
+            rl.question(`${C.bold}Choice (1 or 2): ${C.reset}`, (answer) => {
+                rl.close();
+                const v = (answer || "").trim().toLowerCase();
+                if (v === "1" || v === "local") resolve("local");
+                else if (v === "2" || v === "global") resolve("global");
+                else if (v === "q" || v === "quit" || v === "cancel") process.exit(0);
+                else {
+                    process.stdout.write(`${C.red}Invalid choice "${answer}". Expected 1 or 2, or q to cancel.${C.reset}\n`);
+                    ask();
+                }
+            });
+        };
+        ask();
     });
 }
 
@@ -414,18 +416,16 @@ async function commandNamePrompt(defaultName) {
             settled = true;
             resolve(value);
         };
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-            terminal: true,
-        });
-        rl.on("close", () => {
-            process.stdout.write("\n");
-            settle(fallback);
-        });
         const ask = () => {
-            process.stdout.write(`${C.bold}Slash command name${C.reset} ${C.gray}(Enter for ${fallback}): ${C.reset}`);
-            rl.question("", (answer) => {
+            const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout,
+                terminal: true,
+            });
+            rl.on("close", () => {
+                settle(fallback);
+            });
+            rl.question(`${C.bold}Slash command name${C.reset} ${C.gray}(Enter for ${fallback}): ${C.reset}`, (answer) => {
                 if (answer === undefined) {
                     rl.close();
                     return;
@@ -443,6 +443,7 @@ async function commandNamePrompt(defaultName) {
                 }
                 process.stdout.write(`${C.red}Invalid command name "${trimmed}".${C.reset}\n`);
                 process.stdout.write(`${C.gray}  Must start with a letter, then lowercase letters / digits / hyphens / underscores (1-32 chars, no slashes).${C.reset}\n`);
+                rl.close();
                 ask();
             });
         };
