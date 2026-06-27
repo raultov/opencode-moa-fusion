@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  id-token: write   # required for OIDC → cosign keyless signing
+  contents: write   # required to upload release assets
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -20,9 +24,35 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: sigstore/cosign-installer@v3
+
       - run: bun install
       - run: bun run build
       - run: bun test
+
+      - name: Compute SHA256SUMS for code-execution artefacts
+        working-directory: commands
+        run: |
+          sha256sum moa.md > ../SHA256SUMS
+
+      - name: Sign SHA256SUMS (cosign keyless, OIDC from GitHub Actions)
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          cosign sign-blob --yes \
+            --output-signature SHA256SUMS.sig \
+            --output-certificate SHA256SUMS.pem \
+            SHA256SUMS
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            commands/moa.md
+            SHA256SUMS
+            SHA256SUMS.sig
+            SHA256SUMS.pem
+
       - run: npm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -19,3 +19,5 @@ jobs:
       - run: bun install
       - run: bun run build
       - run: bun test
+      - name: Installer integrity E2E (shell entry point)
+        run: bash tests/install_signature.sh

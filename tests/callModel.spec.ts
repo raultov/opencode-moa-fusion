@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Part } from "@opencode-ai/sdk";
-import { callModel, wrapReadOnly } from "../src/callModel.js";
+import { callModel, READ_ONLY_DIRECTIVE, wrapUserPrompt } from "../src/callModel.js";
 import { makeMockClient } from "./_fixtures/mockClient.js";
 
 describe("callModel [Component]", () => {
@@ -37,13 +36,96 @@ describe("callModel [Component]", () => {
       expect(client.__spy.promptCalls).toHaveLength(1);
       const promptBody = client.__spy.promptCalls[0].body;
       expect(promptBody.model).toEqual({ providerID: "openai", modelID: "gpt-4o-mini" });
-      expect(promptBody.system).toBe("sys_prompt");
-      expect(promptBody.parts).toEqual([
-        { type: "text", text: wrapReadOnly("hello world") },
-      ] as Part[]);
+      expect(promptBody.parts as unknown as Array<{ type: "text"; text: string }>).toEqual([
+        { type: "text", text: wrapUserPrompt("hello world") },
+      ]);
       expect(promptBody.tools).toEqual({ moa_fusion: false });
 
       expect(client.__spy.deleteCalls).toHaveLength(0);
+    });
+  });
+
+  describe("Scenario: READ_ONLY_DIRECTIVE placement (Step 5 / consensus #5)", () => {
+    it("Given no opts.system When callModel is called Then system field equals READ_ONLY_DIRECTIVE", async () => {
+      const client = makeMockClient({
+        onPrompt: async () => ({ parts: [{ type: "text", text: "ok" }] }),
+      });
+      await callModel({
+        client,
+        parentID: "p",
+        model: { providerID: "p", modelID: "m" },
+        text: "hello",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      expect(client.__spy.promptCalls[0].body.system).toBe(READ_ONLY_DIRECTIVE);
+    });
+
+    it("Given opts.system When callModel is called Then system field prepends READ_ONLY_DIRECTIVE before opts.system", async () => {
+      const client = makeMockClient({
+        onPrompt: async () => ({ parts: [{ type: "text", text: "ok" }] }),
+      });
+      await callModel({
+        client,
+        parentID: "p",
+        model: { providerID: "p", modelID: "m" },
+        text: "hello",
+        system: "caller-supplied system",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      const sys = client.__spy.promptCalls[0].body.system as string;
+      expect(sys.startsWith(READ_ONLY_DIRECTIVE)).toBe(true);
+      expect(sys).toContain("caller-supplied system");
+      // Directive must come first — no caller value should be able to
+      // shadow it.
+      expect(sys.indexOf(READ_ONLY_DIRECTIVE)).toBe(0);
+      expect(sys.indexOf("caller-supplied system")).toBeGreaterThan(
+        sys.indexOf(READ_ONLY_DIRECTIVE),
+      );
+    });
+
+    it("Given any prompt When callModel is called Then the user prompt is wrapped in <user_prompt>...</user_prompt>", async () => {
+      const client = makeMockClient({
+        onPrompt: async () => ({ parts: [{ type: "text", text: "ok" }] }),
+      });
+      await callModel({
+        client,
+        parentID: "p",
+        model: { providerID: "p", modelID: "m" },
+        text: "the actual user payload",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      const part = client.__spy.promptCalls[0].body.parts[0] as { type: "text"; text: string };
+      const text = part.text;
+      expect(text).toContain("<user_prompt>");
+      expect(text).toContain("the actual user payload");
+      expect(text).toContain("</user_prompt>");
+      expect(text).toBe(wrapUserPrompt("the actual user payload"));
+    });
+
+    it("Given any prompt When callModel is called Then the legacy '[USER PROMPT BELOW]' marker is gone", async () => {
+      const client = makeMockClient({
+        onPrompt: async () => ({ parts: [{ type: "text", text: "ok" }] }),
+      });
+      await callModel({
+        client,
+        parentID: "p",
+        model: { providerID: "p", modelID: "m" },
+        text: "hello",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      const sys = client.__spy.promptCalls[0].body.system as string;
+      const part = client.__spy.promptCalls[0].body.parts[0] as { type: "text"; text: string };
+      const text = part.text;
+      expect(sys).not.toContain("[USER PROMPT BELOW]");
+      expect(text).not.toContain("[USER PROMPT BELOW]");
+    });
+
+    it("Given the READ_ONLY_DIRECTIVE constant When read Then it does not contain the legacy '[USER PROMPT BELOW]' marker", () => {
+      expect(READ_ONLY_DIRECTIVE).not.toContain("[USER PROMPT BELOW]");
     });
   });
 
@@ -135,6 +217,68 @@ describe("callModel [Component]", () => {
         expect(result.error).toBe("aborted");
       }
       expect(client.__spy.deleteCalls).toHaveLength(0);
+    });
+
+    it("Given signal already aborted before call When callModel is called Then returns aborted error (M6 / TOCTOU)", async () => {
+      const ac = new AbortController();
+      ac.abort();
+      const client = makeMockClient({
+        onPrompt: async () => ({ parts: [] }),
+      });
+      const result = await callModel({
+        client,
+        parentID: "p1",
+        model: { providerID: "p", modelID: "m" },
+        text: "t",
+        abort: ac.signal,
+        timeoutMs: 1000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toBe("aborted");
+      }
+    });
+  });
+
+  describe("Scenario: error messages are sanitized (M1 / information leak)", () => {
+    it("Given prompt rejects with an error containing a filesystem path When callModel is called Then the error is sanitized", async () => {
+      const client = makeMockClient({
+        onPrompt: async () => {
+          throw new Error("EACCES: /Users/victim/.opencode/sessions/abc.json");
+        },
+      });
+      const result = await callModel({
+        client,
+        parentID: "p1",
+        model: { providerID: "p", modelID: "m" },
+        text: "t",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).not.toContain("/Users/victim");
+        expect(result.error).toContain("<path>");
+      }
+    });
+
+    it("Given session.create rejects with a path-bearing error When callModel is called Then the error is sanitized", async () => {
+      const client = makeMockClient();
+      client.session.create = async () => {
+        throw new Error("cannot create session at /home/user/.config/opencode/x");
+      };
+      const result = await callModel({
+        client,
+        parentID: "p1",
+        model: { providerID: "p", modelID: "m" },
+        text: "t",
+        abort: new AbortController().signal,
+        timeoutMs: 1000,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).not.toContain("/home/user");
+      }
     });
   });
 });

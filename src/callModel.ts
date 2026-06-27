@@ -1,5 +1,6 @@
 import type { AssistantMessage, OpencodeClient, Part } from "@opencode-ai/sdk";
 import { partsToText } from "./extract.js";
+import { sanitizeErrorMessage } from "./sanitize.js";
 import type { ModelRef, WorkerResult } from "./types.js";
 
 type SessionCreateBody = NonNullable<Parameters<OpencodeClient["session"]["create"]>[0]>["body"];
@@ -20,11 +21,17 @@ You are a worker node in a Mixture-of-Agents (MoA) architecture.
 Your role is strictly READ-ONLY.
 You MUST NOT attempt to modify any files, write code to disk, or execute destructive bash commands.
 If you need to analyze the codebase, use read, glob, grep, or knot tools.
-Provide your proposed solution or analysis in text format only. The orchestrator agent will handle any actual file modifications.
-[USER PROMPT BELOW]`;
+Provide your proposed solution or analysis in text format only. The orchestrator agent will handle any actual file modifications.`;
 
-export function wrapReadOnly(text: string): string {
-  return `${READ_ONLY_DIRECTIVE}\n\n${text}`;
+/**
+ * Wraps the user-supplied prompt in unambiguous XML-style boundary markers.
+ * Even if the provider/model ignores the `system` channel, the worker still
+ * has a clear start/end for the user payload and cannot be tricked into
+ * "overriding previous instructions" by an injected payload that runs past
+ * a textual delimiter.
+ */
+export function wrapUserPrompt(text: string): string {
+  return `<user_prompt>\n${text}\n</user_prompt>`;
 }
 
 export type CallModelOpts = {
@@ -36,6 +43,7 @@ export type CallModelOpts = {
   agent?: string;
   abort: AbortSignal;
   timeoutMs: number;
+  tools?: Record<string, boolean>;
 };
 
 export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
@@ -64,13 +72,19 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
 
     const ac = new AbortController();
     const onOuterAbort = () => ac.abort(new Error("aborted"));
-    if (opts.abort.aborted) onOuterAbort();
     opts.abort.addEventListener("abort", onOuterAbort);
+    if (opts.abort.aborted) onOuterAbort();
 
     const timeoutId = setTimeout(() => ac.abort(new Error("timeout")), opts.timeoutMs);
 
     let promptRes: PromptResult | undefined;
     let promptError: unknown;
+
+    // Compose the system channel: READ_ONLY_DIRECTIVE is always prepended.
+    // If the caller passes their own opts.system, we append it after, so
+    // the read-only directive always wins (defence in depth against
+    // prompt injection that reaches the system channel).
+    const system = opts.system ? `${READ_ONLY_DIRECTIVE}\n\n${opts.system}` : READ_ONLY_DIRECTIVE;
 
     try {
       promptRes = await opts.client.session.prompt({
@@ -78,9 +92,9 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
         body: {
           model: opts.model,
           agent: opts.agent || "general",
-          ...(opts.system ? { system: opts.system } : {}),
-          parts: [{ type: "text", text: wrapReadOnly(opts.text) }],
-          tools: { moa_fusion: false },
+          system,
+          parts: [{ type: "text", text: wrapUserPrompt(opts.text) }],
+          tools: { ...(opts.tools || {}), moa_fusion: false },
         },
         signal: ac.signal,
       });
@@ -94,15 +108,11 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
     let errStr: string | undefined;
 
     if (ac.signal.aborted) {
-      errStr =
-        ac.signal.reason instanceof Error
-          ? ac.signal.reason.message
-          : String(ac.signal.reason || "aborted");
+      errStr = sanitizeErrorMessage(ac.signal.reason || "aborted");
     } else if (promptError) {
-      errStr = promptError instanceof Error ? promptError.message : String(promptError);
+      errStr = sanitizeErrorMessage(promptError);
     } else if (promptRes?.error) {
-      errStr =
-        typeof promptRes.error === "string" ? promptRes.error : JSON.stringify(promptRes.error);
+      errStr = sanitizeErrorMessage(promptRes.error);
     }
 
     if (errStr !== undefined) {
@@ -129,7 +139,7 @@ export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
     return {
       ok: false,
       model: modelStr,
-      error: e instanceof Error ? e.message : String(e),
+      error: sanitizeErrorMessage(e),
       elapsedMs: Date.now() - start,
     };
   }

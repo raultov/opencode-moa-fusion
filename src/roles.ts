@@ -3,7 +3,7 @@ import { parseModelRef } from "./parseModelRef.js";
 import { type ModelRef, type ResolvedRoles, RoleResolutionError } from "./types.js";
 
 type Args = { workers?: string[]; timeoutMs?: number };
-type Options = { workers?: unknown; timeoutMs?: unknown };
+type Options = { workers?: unknown; timeoutMs?: unknown; agent?: unknown };
 
 export function resolveTimeoutMs(args: Args, options: Options, fallback = 300000): number {
   const fromArgs =
@@ -12,6 +12,22 @@ export function resolveTimeoutMs(args: Args, options: Options, fallback = 300000
   const fromOpts =
     typeof options.timeoutMs === "number" && options.timeoutMs > 0 ? options.timeoutMs : undefined;
   if (fromOpts) return fromOpts;
+  return fallback;
+}
+
+/**
+ * Resolve the OpenCode agent profile under which workers run.
+ *
+ * The agent MUST come from the user's `opencode.json` plugin options
+ * (a trusted source). It is deliberately NOT accepted as a tool argument:
+ * a prompt-injection payload that reached the orchestrator agent could
+ * otherwise pick an elevated-permission worker profile. See
+ * `SECURITY_PLAN.md` step 3 (consensus #3, CWE-20).
+ */
+export function resolveAgent(options: Options, fallback = "general"): string {
+  if (typeof options.agent === "string" && options.agent.length > 0) {
+    return options.agent;
+  }
   return fallback;
 }
 
@@ -54,7 +70,39 @@ export async function resolveRoles(
     return ref;
   };
 
-  const workers = workersRaw.map(validate);
+  const validated = workersRaw.map(validate);
 
-  return { workers, source };
+  // Deduplicate by `${providerID}/${modelID}`. Duplicates are silently
+  // dropped — the first occurrence wins. If the deduped list is empty
+  // (e.g. all entries were unknown models), MISSING_ROLES would already
+  // have been raised above; we still guard here for defence in depth.
+  const seen = new Set<string>();
+  const deduped: ModelRef[] = [];
+  for (const w of validated) {
+    const key = `${w.providerID}/${w.modelID}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(w);
+  }
+
+  if (deduped.length === 0) {
+    throw new RoleResolutionError(
+      "MISSING_ROLES",
+      `moa_fusion: no models configured. Provide \`workers\` in args or plugin options.`,
+    );
+  }
+
+  // Cap parallel worker sessions. Throwing (instead of silently trimming)
+  // is deliberate: silent trimming hides config bugs in opencode.json.
+  // The schema-level `.max(8)` on args.workers catches the args path at
+  // parse time, before we reach this resolver.
+  if (deduped.length > 8) {
+    throw new RoleResolutionError(
+      "TOO_MANY_WORKERS",
+      `moa_fusion: at most 8 workers allowed, got ${deduped.length}. ` +
+        `Reduce the \`workers\` list in your plugin options or split the fan-out into multiple calls.`,
+    );
+  }
+
+  return { workers: deduped, source };
 }

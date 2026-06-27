@@ -81,6 +81,39 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 
 > **Note:** The `workers` specified in `opencode.json` act as defaults. The primary agent can override these at runtime by passing arguments to the tool.
 
+### Plugin options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `workers` | `string[]` | _(required)_ | Worker model refs as `"providerID/modelID"`. |
+| `timeoutMs` | `number` | `300000` | Per-worker timeout in ms. |
+| `agent` | `string` | `"general"` | OpenCode agent profile each worker runs under. Cannot be overridden by the orchestrator at runtime — only via `opencode.json`. |
+| `workerTools` | `string[]` | `["read", "glob", "grep"]` | Allowlist of tools each worker may use. See below. |
+
+#### `workerTools` (optional)
+
+Each worker session runs as a child of the primary agent, but **workers are sandboxed to a read-only tool allowlist** so a compromised worker — or a prompt-injection payload that reaches a worker — cannot execute side-effects on your machine.
+
+```json
+{
+  "plugin": [
+    [
+      "opencode-moa-fusion",
+      {
+        "workers": ["openai/gpt-4o-mini"],
+        "workerTools": ["read", "glob", "grep"]
+      }
+    ]
+  ]
+}
+```
+
+- **Default**: `["read", "glob", "grep"]` — these are the minimum tools needed for code analysis, and none of them produce side effects.
+- **Empty array `[]`**: workers get **no** tools at all (pure LLM-only mode).
+- **Non-empty array**: only the listed tools are enabled. The well-known side-effect tools (`bash`, `write`, `edit`, `webfetch`, `patch`, `todowrite`) are explicitly **denied** unless you list them yourself.
+- **`moa_fusion` is always forced off inside workers** to prevent recursion, even if you accidentally list it.
+- To expose knot MCP tools to workers, list them explicitly: `["read", "glob", "grep", "knot-mcp_search_hybrid_context", "knot-mcp_find_callers"]`.
+
 ### ⚠️ Always pin a specific version — do not use `@latest`
 
 **Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.5`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:
@@ -154,9 +187,14 @@ The tool will:
 ### Tool Arguments
 
 - **`prompt`** (required): The user prompt to fan out to every worker model.
-- **`workers`** (optional): Array of worker model refs as `"providerID/modelID"`. Overrides plugin options.
-- **`agent`** (optional): Agent profile to use for underlying model calls. Defaults to `"general"`.
-- **`timeoutMs`** (optional): Per-worker timeout in milliseconds. Defaults to 120000ms.
+- **`workers`** (optional): Array of worker model refs as `"providerID/modelID"`. Overrides plugin options. Up to 8 workers per call (schema-enforced at parse time); duplicates are rejected.
+- **`timeoutMs`** (optional): Per-worker timeout in milliseconds. Defaults to 300000ms.
+
+> **Note:** the `agent` profile used for the underlying model calls is **not**
+> accepted as a tool argument — it can only be set via the `agent` plugin
+> option in `opencode.json`. This closes a privilege-escalation vector where
+> a prompt-injection payload reaching the orchestrator agent could otherwise
+> pick an elevated-permission worker profile.
 
 ## Output Format
 

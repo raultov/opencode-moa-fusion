@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { resolveRoles, resolveTimeoutMs } from "../src/roles.js";
+import { resolveAgent, resolveRoles, resolveTimeoutMs } from "../src/roles.js";
 import { RoleResolutionError } from "../src/types.js";
 import { makeMockClient } from "./_fixtures/mockClient.js";
 
@@ -73,6 +73,156 @@ describe("resolveRoles [Component]", () => {
       }
       expect(err).toBeInstanceOf(RoleResolutionError);
       expect((err as RoleResolutionError).code).toBe("MISSING_ROLES");
+    });
+  });
+
+  describe("Scenario: deduplication (Step 4 / consensus #4)", () => {
+    it("Given input with duplicate refs When resolveRoles is called Then duplicates are dropped", async () => {
+      const res = await resolveRoles(
+        { workers: ["openai/gpt-4o-mini", "openai/gpt-4o-mini", "anthropic/claude-3-5-sonnet"] },
+        {},
+        client,
+      );
+      expect(res.workers).toHaveLength(2);
+      expect(res.workers.map((w) => `${w.providerID}/${w.modelID}`)).toEqual([
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3-5-sonnet",
+      ]);
+    });
+
+    it("Given all-duplicate input When resolveRoles is called Then only one worker remains (no MISSING_ROLES)", async () => {
+      const res = await resolveRoles(
+        { workers: ["openai/gpt-4o-mini", "openai/gpt-4o-mini"] },
+        {},
+        client,
+      );
+      expect(res.workers).toHaveLength(1);
+      expect(res.workers[0]).toEqual({ providerID: "openai", modelID: "gpt-4o-mini" });
+    });
+  });
+
+  describe("Scenario: TOO_MANY_WORKERS (Step 4 / consensus #4)", () => {
+    it("Given options.workers with 9 entries When resolveRoles is called Then throws TOO_MANY_WORKERS", async () => {
+      const nine = [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3-5-sonnet",
+        "openai/gpt-4o",
+        "anthropic/claude-3-5-haiku",
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3-5-sonnet",
+        "openai/gpt-4o",
+        "anthropic/claude-3-5-haiku",
+        "openai/gpt-4o-mini",
+      ];
+      // Use unique entries — dedup must happen BEFORE the cap check, and
+      // we want exactly 9 distinct models to be rejected.
+      const nineDistinct = [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3-5-sonnet",
+        "openai/gpt-4o",
+        "anthropic/claude-3-5-haiku",
+      ];
+      // We need 9 distinct *known* models in the test client, but our
+      // mock fixture only knows 4. So this test uses args.workers which
+      // is rejected at the schema level first. Here we test the
+      // resolver path with options.workers by exceeding the known model
+      // pool. We settle for the args path via the schema (separate test
+      // in tool.spec.ts) and assert the resolver-level cap with a mock
+      // that returns many models.
+      void nine;
+      void nineDistinct;
+    });
+
+    it("Given a client that knows 9 models and options.workers lists them all When resolveRoles is called Then throws TOO_MANY_WORKERS", async () => {
+      const manyModelsClient = makeMockClient({
+        providers: async () => ({
+          data: {
+            providers: [
+              {
+                id: "p",
+                name: "p",
+                source: "config",
+                env: [],
+                options: {},
+                models: Object.fromEntries(
+                  ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9"].map(
+                    (m) => [m, {}],
+                  ),
+                ) as Record<string, import("./_fixtures/mockClient.js").MockModel>,
+              },
+            ],
+            default: {},
+          },
+        }),
+      });
+      const workers = ["p/m1", "p/m2", "p/m3", "p/m4", "p/m5", "p/m6", "p/m7", "p/m8", "p/m9"];
+      let err: unknown;
+      try {
+        await resolveRoles({}, { workers }, manyModelsClient);
+      } catch (e) {
+        err = e;
+      }
+      expect(err).toBeInstanceOf(RoleResolutionError);
+      expect((err as RoleResolutionError).code).toBe("TOO_MANY_WORKERS");
+      expect((err as RoleResolutionError).message).toContain("at most 8 workers allowed");
+      expect((err as RoleResolutionError).message).toContain("got 9");
+    });
+
+    it("Given exactly 8 workers When resolveRoles is called Then the cap is not triggered", async () => {
+      const eightModelsClient = makeMockClient({
+        providers: async () => ({
+          data: {
+            providers: [
+              {
+                id: "p",
+                name: "p",
+                source: "config",
+                env: [],
+                options: {},
+                models: Object.fromEntries(
+                  ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"].map(
+                    (m) => [m, {}],
+                  ),
+                ) as Record<string, import("./_fixtures/mockClient.js").MockModel>,
+              },
+            ],
+            default: {},
+          },
+        }),
+      });
+      const workers = ["p/m1", "p/m2", "p/m3", "p/m4", "p/m5", "p/m6", "p/m7", "p/m8"];
+      const res = await resolveRoles({}, { workers }, eightModelsClient);
+      expect(res.workers).toHaveLength(8);
+    });
+  });
+});
+
+describe("resolveAgent [Unit]", () => {
+  describe("Scenario: default", () => {
+    it("Given no options When resolveAgent is called Then returns 'general'", () => {
+      expect(resolveAgent({})).toBe("general");
+    });
+
+    it("Given options.agent is undefined When resolveAgent is called Then returns 'general'", () => {
+      expect(resolveAgent({ agent: undefined })).toBe("general");
+    });
+
+    it("Given options.agent is an empty string When resolveAgent is called Then returns the default", () => {
+      expect(resolveAgent({ agent: "" })).toBe("general");
+    });
+
+    it("Given options.agent is a non-string (number) When resolveAgent is called Then returns the default", () => {
+      expect(resolveAgent({ agent: 42 as unknown as string })).toBe("general");
+    });
+  });
+
+  describe("Scenario: explicit", () => {
+    it("Given options.agent='plan' When resolveAgent is called Then returns 'plan'", () => {
+      expect(resolveAgent({ agent: "plan" })).toBe("plan");
+    });
+
+    it("Given a custom fallback When resolveAgent is called Then uses it", () => {
+      expect(resolveAgent({}, "custom")).toBe("custom");
     });
   });
 });

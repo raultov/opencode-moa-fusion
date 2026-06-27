@@ -5,6 +5,139 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.3.0] - 2026-06-27
+
+### Security (PR `security/hardening-2026-06`)
+
+#### Step 1 — Worker tool allowlist (consensus #1, Critical)
+
+- **Workers are now sandboxed to a read-only tool allowlist by default.**
+  The new `workerTools` plugin option lets users extend the allowlist;
+  default is `["read", "glob", "grep"]`. `bash`, `write`, `edit`,
+  `webfetch`, `patch`, and `todowrite` are explicitly denied unless the
+  user opts in by listing them. `moa_fusion` is always forced off inside
+  workers to prevent recursion. See `README.md` for details.
+
+#### Step 2 — Installer integrity (consensus #2, Critical)
+
+- **Installer now verifies release integrity** via Sigstore/cosign
+  keyless signatures and SHA-256 checksums published with every GitHub
+  release. Pinning is to immutable tags only — the `main`/`latest`
+  fallback is gone. Redirects are restricted to an allowlist of
+  GitHub-controlled hosts (`github.com`,
+  `objects.githubusercontent.com`, `raw.githubusercontent.com`); any
+  other redirect target is refused.
+- New `--skip-signature` escape hatch (still SHA-256 verified,
+  recommended only for CI smoke tests where installing `cosign` is
+  impractical). Documented in `RELEASING.md`.
+- New `src/install-verify.mjs` module exposes the verification helpers
+  for unit testing without touching the embedded installer scripts.
+- New end-to-end test (`tests/install_signature.sh` /
+  `tests/install_signature_e2e.mjs`) spins up a local HTTP server and
+  exercises the verify flow against tampered fixtures.
+
+#### Step 3 — `agent` removed from public schema (consensus #3, High)
+
+- **BREAKING**: `agent` is no longer accepted as a tool argument to
+  `moa_fusion`. It can only be set via the `agent` plugin option in
+  `opencode.json`. This closes a privilege-escalation vector where a
+  compromised orchestrator agent could pick an elevated-permission
+  worker profile. The `/moa` slash command never passed `agent` in
+  args, so real-world impact is expected to be zero. A clear Zod error
+  is raised if any orchestrator does try to pass `agent` as a tool
+  argument (the field is silently stripped before `execute()` runs;
+  callers using `moaFusionTool` directly see the `general` default).
+
+#### Step 4 — Worker cap and dedup (consensus #4, High)
+
+- **Up to 8 workers per call.** Enforced at two layers:
+  1. The schema-level `z.array(...).max(8)` on `args.workers` rejects
+     oversized arrays at parse time (before any side effect).
+  2. `resolveRoles` checks the post-dedup count and throws
+     `TOO_MANY_WORKERS` for either input path (args or plugin options).
+- **Duplicates are silently dropped** after `parseModelRef`, comparing
+  by `${providerID}/${modelID}`. The first occurrence wins. This
+  prevents cost amplification when a user accidentally lists the same
+  model twice.
+- New `TOO_MANY_WORKERS` error code in `RoleResolutionError`.
+- New tests in `tests/roles.spec.ts` (dedup, cap) and `tests/tool.spec.ts`
+  (schema rejection at parse time, dedup at spawn time).
+
+#### Step 5 — `READ_ONLY_DIRECTIVE` moved to the `system` channel (consensus #5, Medium)
+
+- **The read-only directive is now sent as the `system` field** of
+  `session.prompt`, no longer concatenated into the user message.
+  Combined with Step 1 (tool allowlist) and Step 3 (agent pinned by the
+  user), this is defence-in-depth against prompt-injection payloads:
+  the directive lives on a separate channel that the model is
+  instructed to treat as authoritative.
+- **The user prompt is wrapped in `<user_prompt>...</user_prompt>`**
+  boundary markers, giving the model an unambiguous start/end even if a
+  provider ignores the `system` channel.
+- `wrapReadOnly` is removed; replaced by `wrapUserPrompt` (only does
+  the boundary wrap, no directive concatenation).
+- The legacy `[USER PROMPT BELOW]` textual marker is removed from
+  `READ_ONLY_DIRECTIVE` — the boundary is now structural, not textual.
+- Caller-supplied `opts.system` is appended after the directive
+  (directive always wins), so no caller can shadow it.
+- New tests in `tests/callModel.spec.ts` assert the directive is in
+  `system`, the prompt is wrapped, the legacy marker is gone, and a
+  caller-supplied `system` cannot shadow the directive.
+
+#### Follow-up hardening (M1–M6)
+
+- **M1 — Error message sanitization (`src/sanitize.ts`).** A new
+  `sanitizeErrorMessage` helper redacts absolute filesystem paths
+  (`/Users/...`, `/home/...`, `C:\...`), UUIDs, hex trace IDs, drops
+  stack frames, collapses whitespace, and truncates to 200 chars.
+  Applied at every error-surface point in `callModel.ts` (prompt
+  errors, abort reasons, create errors) and `tool.ts` (outer catch).
+  A leaked SDK error like `EACCES: /Users/victim/.opencode/sessions/x.json`
+  is now surfaced as `EACCES: <path>` to the orchestrator.
+- **M2 — `shell: false` in installer subprocess spawns
+  (`install.sh:144,157`, `install.ps1:136,149`).** The four
+  `cp.spawn(..., { shell: true })` calls in `runCommand` and
+  `captureCommand` now use `shell: false` with array args, closing
+  the command-injection vector entirely. Added `proc.on("error", ...)`
+  handlers and stderr capture for cleaner failure surfacing.
+- **M3 — Atomic write of `opencode.json` (`src/install-merge-config.mjs`).**
+  Replaced `fs.writeFileSync(configPath, ...)` with write-temp +
+  `fsyncSync` + `renameSync`. The installer can no longer leave a
+  half-written config on disk if the process is killed mid-write, and
+  concurrent `opencode` invocations are safe from the TOCTOU window.
+  Verified by `tests/install-merge-config.spec.ts` (no leftover
+  `.tmp.*` after a successful merge).
+- **M4 — Stricter `npm view` version validation (`install.sh:451-466`,
+  `install.ps1:449-464`).** Both `npm view ... version` output and the
+  `--version=` override now pass a triple check: type-check
+  (`typeof === "string"`), length cap (`≤ 64` chars), and strict
+  `SEMVER_RE` match. A non-semver string from a corrupted registry
+  response or proxy can no longer be interpolated into release URLs.
+- **M5 — Structured worker-output markers (`src/tool.ts:41-58`).** Each
+  worker output (success and failure) is wrapped in
+  `<worker_output index="N" model="...">...</worker_output>` tags, and
+  the synthesis instructions tell the orchestrator to treat the wrapped
+  content as untrusted data, not as instructions. Closes the
+  output-injection vector where a worker could escape its sandbox via
+  a payload that tells the orchestrator to follow injected commands.
+- **M6 — TOCTOU race on outer abort signal (`src/callModel.ts:73-76`).**
+  Swapped the order of `addEventListener("abort", ...)` and the
+  `opts.abort.aborted` check so a signal fired between the two cannot
+  leave the worker call running unattached to its outer abort. A new
+  test in `tests/callModel.spec.ts` asserts that a signal already
+  aborted before `callModel` is called returns `aborted`.
+
+#### Developer tooling
+
+- New `scripts/dev-install-server.mjs` (HTTPS-only, optional self-signed
+  cert via `--https`) and `scripts/dev-drive-installer.sh` (drives
+  `install.sh` end-to-end against the local server in a fake PTY via
+  `socat`). Lets contributors exercise the full installer flow —
+  including the integrity-verification path — without publishing a
+  GitHub release first.
+
 ## [1.2.7] - 2026-06-26
 
 ### Fixed (CRITICAL)
