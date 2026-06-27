@@ -344,7 +344,7 @@ async function main(): Promise<void> {
     commandName = await commandNamePrompt(DEFAULT_COMMAND_NAME);
   }
 
-  const xdgConfig = process.env["XDG_CONFIG_HOME"] ?? path.join(os.homedir(), ".config");
+  const xdgConfig = process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config");
   const configPath =
     scope === "global"
       ? path.join(xdgConfig, "opencode", "opencode.json")
@@ -392,7 +392,8 @@ async function main(): Promise<void> {
 
 // Only run when executed directly, not when imported by tests
 // Resolve symlinks to handle npm bin/npx wrappers correctly
-const isMain = process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+const isMain =
+  process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
   main().catch((err) => {

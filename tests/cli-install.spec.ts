@@ -1,9 +1,16 @@
-import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { execSync } from "node:child_process";
-import { parseArgs, getOpencodeModels, atomicWriteSync, runMergeConfig, MOA_MD_SOURCE, VERSION } from "../src/cli/install.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {
+  atomicWriteSync,
+  getOpencodeModels,
+  MOA_MD_SOURCE,
+  parseArgs,
+  runMergeConfig,
+  VERSION,
+} from "../src/cli/install.js";
 import { normalizeCommandName } from "../src/commandName.js";
 
 // ── parseArgs ─────────────────────────────────────────────────────────────────
@@ -35,9 +42,10 @@ describe("parseArgs [Unit]", () => {
   });
 
   it("Given both flags Then returns both values", () => {
-    expect(
-      parseArgs(["--command-name=council", "--scope=global"]),
-    ).toEqual({ commandName: "council", scope: "global" });
+    expect(parseArgs(["--command-name=council", "--scope=global"])).toEqual({
+      commandName: "council",
+      scope: "global",
+    });
   });
 
   it("Given unknown flag Then ignores it silently", () => {
@@ -90,26 +98,26 @@ describe("getOpencodeModels [Unit] (env propagation)", () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "moa-test-models-"));
-    origPath = process.env["PATH"];
-    origToken = process.env["MOA_TEST_TOKEN"];
+    origPath = process.env.PATH;
+    origToken = process.env.MOA_TEST_TOKEN;
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    if (origPath !== undefined) process.env["PATH"] = origPath;
-    if (origToken === undefined) delete process.env["MOA_TEST_TOKEN"];
-    else process.env["MOA_TEST_TOKEN"] = origToken;
+    if (origPath !== undefined) process.env.PATH = origPath;
+    if (origToken === undefined) delete process.env.MOA_TEST_TOKEN;
+    else process.env.MOA_TEST_TOKEN = origToken;
   });
 
   it("Given a fake opencode binary that echoes an env var When getOpencodeModels is called Then the env var is inherited", () => {
     // fake opencode outputs a line with "/" so it passes the model filter
     const fakeScript = path.join(tmpDir, "opencode");
-    fs.writeFileSync(
-      fakeScript,
-      `#!/bin/sh\necho "provider/$MOA_TEST_TOKEN"\n`,
-      { mode: 0o755 },
-    );
-    const testEnv = { ...process.env, PATH: `${tmpDir}:${origPath ?? ""}`, MOA_TEST_TOKEN: "hello123" };
+    fs.writeFileSync(fakeScript, `#!/bin/sh\necho "provider/$MOA_TEST_TOKEN"\n`, { mode: 0o755 });
+    const testEnv = {
+      ...process.env,
+      PATH: `${tmpDir}:${origPath ?? ""}`,
+      MOA_TEST_TOKEN: "hello123",
+    };
     const models = getOpencodeModels(testEnv);
     expect(models).toContain("provider/hello123");
   });
@@ -240,20 +248,11 @@ describe("E2E install flow [Integration] (no TTY, no internet)", () => {
 
 describe("CLI subprocess smoke test [E2E]", () => {
   let tmpDir: string;
-  const distCli = path.resolve(
-    import.meta.dir,
-    "..",
-    "dist",
-    "cli",
-    "install.js",
-  );
+  const distCli = path.resolve(import.meta.dir, "..", "dist", "cli", "install.js");
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "moa-test-smoke-"));
-    fs.writeFileSync(
-      path.join(tmpDir, "opencode.json"),
-      JSON.stringify({ plugin: [] }),
-    );
+    fs.writeFileSync(path.join(tmpDir, "opencode.json"), JSON.stringify({ plugin: [] }));
   });
 
   afterEach(() => {
@@ -262,37 +261,26 @@ describe("CLI subprocess smoke test [E2E]", () => {
 
   it("Given --scope=local and --command-name=smoketest When run in tmpdir Then creates expected files", () => {
     // Runs fully non-interactive: no TTY prompts, no model fetch (opencode not in PATH)
-    execSync(
-      `"${process.execPath}" "${distCli}" --scope=local --command-name=smoketest`,
-      {
-        cwd: tmpDir,
-        env: { ...process.env, PATH: "" }, // no opencode in PATH → models = []
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: 15000,
-      },
-    );
+    execSync(`"${process.execPath}" "${distCli}" --scope=local --command-name=smoketest`, {
+      cwd: tmpDir,
+      env: { ...process.env, PATH: "" }, // no opencode in PATH → models = []
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 15000,
+    });
 
     // opencode.json updated
-    const cfg = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, "opencode.json"), "utf-8"),
-    );
-    const moaEntry = cfg.plugin.find(
-      (p: unknown) =>
-        typeof p === "string"
-          ? p.startsWith("opencode-moa-fusion")
-          : Array.isArray(p) &&
-            typeof (p as string[])[0] === "string" &&
-            (p as string[])[0].startsWith("opencode-moa-fusion"),
+    const cfg = JSON.parse(fs.readFileSync(path.join(tmpDir, "opencode.json"), "utf-8"));
+    const moaEntry = cfg.plugin.find((p: unknown) =>
+      typeof p === "string"
+        ? p.startsWith("opencode-moa-fusion")
+        : Array.isArray(p) &&
+          typeof (p as string[])[0] === "string" &&
+          (p as string[])[0].startsWith("opencode-moa-fusion"),
     );
     expect(moaEntry).toBeDefined();
 
     // slash command installed
-    const cmdPath = path.join(
-      tmpDir,
-      ".opencode",
-      "command",
-      "smoketest.md",
-    );
+    const cmdPath = path.join(tmpDir, ".opencode", "command", "smoketest.md");
     expect(fs.existsSync(cmdPath)).toBe(true);
     expect(fs.readFileSync(cmdPath)).toEqual(fs.readFileSync(MOA_MD_SOURCE));
   });
