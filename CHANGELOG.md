@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.8] - 2026-06-28
+
+### Fixed
+
+- **Build**: Migrated from `tsc` to `tsup` for building the plugin. This forces the bundling of all dependencies (like `zod` and the `tool` function from `@opencode-ai/plugin`), fixing `ERR_MODULE_NOT_FOUND` runtime crashes when OpenCode dynamically loads the plugin tarball without executing `npm install` inside the cache directory.
+
 ## [1.3.7] - 2026-06-27
 
 ### Fixed

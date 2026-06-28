@@ -8,8 +8,7 @@
 
 const MAX_ERROR_LENGTH = 200;
 
-const PATH_RE =
-  /(?:\/(?:Users|home|root|tmp|var|opt|etc|mnt|proc|sys)\/[^\s'"`)]+|C:\\[^\s'"`)]+)/g;
+const PATH_RE = /\/(?:Users|home|root|tmp|var|opt|etc|mnt|proc|sys)\/[^\s'"`)]+|C:\\[^\s'"`)]+/g;
 const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 const HEX_TRACE_RE = /\b[0-9a-f]{16,64}\b/gi;
 const STACK_LINE_RE = /^\s*at\s+.+$/gm;

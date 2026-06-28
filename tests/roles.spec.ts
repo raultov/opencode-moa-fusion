@@ -145,9 +145,7 @@ describe("resolveRoles [Component]", () => {
                 env: [],
                 options: {},
                 models: Object.fromEntries(
-                  ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9"].map(
-                    (m) => [m, {}],
-                  ),
+                  ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9"].map((m) => [m, {}]),
                 ) as Record<string, import("./_fixtures/mockClient.js").MockModel>,
               },
             ],
@@ -180,9 +178,7 @@ describe("resolveRoles [Component]", () => {
                 env: [],
                 options: {},
                 models: Object.fromEntries(
-                  ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"].map(
-                    (m) => [m, {}],
-                  ),
+                  ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"].map((m) => [m, {}]),
                 ) as Record<string, import("./_fixtures/mockClient.js").MockModel>,
               },
             ],

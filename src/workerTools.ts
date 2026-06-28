@@ -1,17 +1,8 @@
 import { RoleResolutionError } from "./types.js";
 
-export type WorkerToolsOption = string[] | undefined;
-
 export type OptionsLike = { workerTools?: unknown };
 
-const DANGEROUS_TOOLS = [
-  "bash",
-  "write",
-  "edit",
-  "webfetch",
-  "patch",
-  "todowrite",
-] as const;
+const DANGEROUS_TOOLS = ["bash", "write", "edit", "webfetch", "patch", "todowrite"] as const;
 
 export const DEFAULT_WORKER_TOOLS: ReadonlyArray<string> = ["read", "glob", "grep"];
 
@@ -44,7 +35,7 @@ export function resolveWorkerTools(options: OptionsLike): Record<string, boolean
   if (!Array.isArray(raw)) {
     throw new RoleResolutionError(
       "INVALID_WORKER_TOOLS",
-      "moa_fusion: `workerTools` must be an array of tool name strings (e.g. [\"read\", \"glob\", \"grep\"]).",
+      'moa_fusion: `workerTools` must be an array of tool name strings (e.g. ["read", "glob", "grep"]).',
     );
   }
 

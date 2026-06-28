@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { resolveWorkerTools } from "../src/workerTools.js";
 import { RoleResolutionError } from "../src/types.js";
+import { resolveWorkerTools } from "../src/workerTools.js";
 
 describe("resolveWorkerTools [Unit]", () => {
   describe("Scenario: no workerTools option", () => {
