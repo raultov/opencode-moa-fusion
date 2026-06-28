@@ -6,6 +6,8 @@
       "name": "opencode-moa",
       "devDependencies": {
         "@biomejs/biome": "^2.5.0",
+        "@opencode-ai/plugin": "^1.4.0",
+        "@opencode-ai/sdk": "^1.0.0",
         "@types/bun": "latest",
         "typescript": "^5.5.0",
       },
@@ -13,6 +15,10 @@
         "@opencode-ai/plugin": "^1.4.0",
         "@opencode-ai/sdk": "*",
       },
+      "optionalPeers": [
+        "@opencode-ai/plugin",
+        "@opencode-ai/sdk",
+      ],
     },
   },
   "packages": {
