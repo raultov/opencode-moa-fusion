@@ -103,6 +103,100 @@ export function getOpencodeModels(env: NodeJS.ProcessEnv = process.env): string[
   }
 }
 
+// Strip // and /* */ comments and trailing commas to tolerate JSON5/JSONC.
+// Mirrors the same logic used by src/install-merge-config.mjs so the installer
+// can read configs that the user has hand-edited with comments. It is also
+// string-aware so it does not eat a // that lives inside a JSON string.
+function stripJsonc(input: string): string {
+  let out = "";
+  let i = 0;
+  const n = input.length;
+  let inString = false;
+  let stringQuote = "";
+  while (i < n) {
+    const c = input[i];
+    const c2 = i + 1 < n ? input[i + 1] : "";
+    if (inString) {
+      out += c;
+      if (c === "\\" && i + 1 < n) {
+        out += input[i + 1];
+        i += 2;
+        continue;
+      }
+      if (c === stringQuote) inString = false;
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      inString = true;
+      stringQuote = c;
+      out += c;
+      i++;
+      continue;
+    }
+    if (c === "/" && c2 === "/") {
+      while (i < n && input[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && c2 === "*") {
+      i += 2;
+      while (i < n - 1 && !(input[i] === "*" && input[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out.replace(/,(\s*[}\]])/g, "$1");
+}
+
+// Read the previously configured workers for opencode-moa-fusion from an
+// existing opencode.json so the multi-select prompt can pre-select them.
+// Returns an empty array when the file does not exist, cannot be parsed,
+// or does not yet contain an opencode-moa-fusion plugin entry. Any error
+// is swallowed: pre-selection is a best-effort UX feature and must never
+// block installation.
+export function getExistingWorkers(configPath: string): string[] {
+  if (!fs.existsSync(configPath)) return [];
+  let raw: string;
+  try {
+    raw = fs.readFileSync(configPath, "utf-8");
+  } catch {
+    return [];
+  }
+  if (raw.trim() === "") return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    try {
+      parsed = JSON.parse(stripJsonc(raw));
+    } catch {
+      return [];
+    }
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return [];
+
+  const plugins = (parsed as Record<string, unknown>).plugin;
+  if (!Array.isArray(plugins)) return [];
+
+  for (const entry of plugins) {
+    if (!Array.isArray(entry)) continue;
+    if (typeof entry[0] !== "string") continue;
+    if (!entry[0].startsWith("opencode-moa-fusion")) continue;
+
+    const config = entry[1];
+    if (typeof config !== "object" || config === null) return [];
+    const workers = (config as Record<string, unknown>).workers;
+    if (!Array.isArray(workers)) return [];
+    return workers.filter((w): w is string => typeof w === "string");
+  }
+
+  return [];
+}
+
 async function scopePrompt(): Promise<"local" | "global"> {
   return new Promise((resolve) => {
     process.stdout.write(
@@ -186,7 +280,7 @@ async function commandNamePrompt(defaultName: string): Promise<string> {
   });
 }
 
-async function multiSelectPrompt(models: string[]): Promise<string[]> {
+async function multiSelectPrompt(models: string[], preSelected: string[] = []): Promise<string[]> {
   if (models.length === 0) return [];
 
   return new Promise((resolve) => {
@@ -196,7 +290,13 @@ async function multiSelectPrompt(models: string[]): Promise<string[]> {
       terminal: true,
     });
 
-    const selected = new Set<string>();
+    // Only seed selection with workers that are still offered by opencode;
+    // anything no longer in `models` is silently dropped (matches the
+    // installer's "tolerate stale config" contract).
+    const modelSet = new Set(models);
+    const selected = new Set<string>(
+      preSelected.filter((m) => typeof m === "string" && modelSet.has(m)),
+    );
     let cursorY = 0;
     let filter = "";
 
@@ -358,7 +458,8 @@ async function main(): Promise<void> {
   const models = getOpencodeModels();
   let workers: string[];
   if (models.length > 0) {
-    workers = await multiSelectPrompt(models);
+    const existingWorkers = getExistingWorkers(configPath);
+    workers = await multiSelectPrompt(models, existingWorkers);
   } else {
     console.log(
       `${C.yellow}Could not fetch models. You can add them to opencode.json manually later.${C.reset}`,

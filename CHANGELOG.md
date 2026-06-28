@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.9] - 2026-06-28
+
+### Added
+
+- **Installer**: The interactive installer (`npx opencode-moa-fusion`) now reads the previously configured workers from the existing `opencode.json` and pre-selects them in the model list. On a re-install or upgrade, the user does not have to re-pick their workers from scratch. Workers that are no longer offered by OpenCode are silently dropped from the pre-selection.
+
 ## [1.3.8] - 2026-06-28
 
 ### Fixed

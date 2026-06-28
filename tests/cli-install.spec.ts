@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   atomicWriteSync,
+  getExistingWorkers,
   getOpencodeModels,
   MOA_MD_SOURCE,
   parseArgs,
@@ -172,6 +173,105 @@ describe("atomicWriteSync [Unit]", () => {
     atomicWriteSync(target, Buffer.from("data"));
     const entries = fs.readdirSync(tmpDir);
     expect(entries.filter((e) => e.includes(".tmp"))).toHaveLength(0);
+  });
+});
+
+// ── getExistingWorkers ────────────────────────────────────────────────────────
+
+describe("getExistingWorkers [Unit]", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "moa-test-existing-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("Given a non-existent config path Then returns an empty array", () => {
+    const result = getExistingWorkers(path.join(tmpDir, "missing.json"));
+    expect(result).toEqual([]);
+  });
+
+  it("Given an empty file Then returns an empty array", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(configPath, "");
+    expect(getExistingWorkers(configPath)).toEqual([]);
+  });
+
+  it("Given a config with a moa-fusion [spec, config] entry Then returns its workers", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        plugin: [["opencode-moa-fusion@1.0.0", { workers: ["a/b", "c/d"] }]],
+      }),
+    );
+    expect(getExistingWorkers(configPath)).toEqual(["a/b", "c/d"]);
+  });
+
+  it("Given a bare moa-fusion plugin string (no config) Then returns an empty array", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(configPath, JSON.stringify({ plugin: ["opencode-moa-fusion@1.0.0"] }));
+    expect(getExistingWorkers(configPath)).toEqual([]);
+  });
+
+  it("Given a moa-fusion entry with a config object but no workers key Then returns an empty array", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        plugin: [["opencode-moa-fusion@1.0.0", { other: true }]],
+      }),
+    );
+    expect(getExistingWorkers(configPath)).toEqual([]);
+  });
+
+  it("Given a config without any moa-fusion entry Then returns an empty array", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({ plugin: [["some-other-plugin@1.0.0", { workers: ["x/y"] }]] }),
+    );
+    expect(getExistingWorkers(configPath)).toEqual([]);
+  });
+
+  it("Given a JSONC config with comments and trailing commas Then parses and returns workers", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(
+      configPath,
+      `{
+        // a comment
+        "plugin": [
+          ["opencode-moa-fusion@1.0.0", { "workers": ["a/b", "c/d"], }],
+        ],
+      }`,
+    );
+    expect(getExistingWorkers(configPath)).toEqual(["a/b", "c/d"]);
+  });
+
+  it("Given an unparseable config Then returns an empty array (does not throw)", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(configPath, "{ this is not json");
+    expect(getExistingWorkers(configPath)).toEqual([]);
+  });
+
+  it("Given a top-level array (not an object) Then returns an empty array", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(configPath, JSON.stringify(["not", "an", "object"]));
+    expect(getExistingWorkers(configPath)).toEqual([]);
+  });
+
+  it("Given a workers array with non-string entries Then filters them out", () => {
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        plugin: [["opencode-moa-fusion@1.0.0", { workers: ["a/b", 42, null, "c/d"] }]],
+      }),
+    );
+    expect(getExistingWorkers(configPath)).toEqual(["a/b", "c/d"]);
   });
 });
 
