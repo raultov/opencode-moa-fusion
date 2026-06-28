@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.7] - 2026-06-27
+
+### Fixed
+
+- **Build**: Added `@opencode-ai/plugin` and `@opencode-ai/sdk` to `devDependencies` to fix TypeScript compilation errors in CI after they were made optional peer dependencies.
+
+## [1.3.6] - 2026-06-27
+
+### Fixed
+
+- **Install**: Marked `@opencode-ai/plugin` and `@opencode-ai/sdk` as optional peer dependencies (`peerDependenciesMeta`) to prevent `npx opencode-moa-fusion` from throwing `EBADENGINE` warnings on user machines.
+
 ## [1.3.5] - 2026-06-27
 
 ### Breaking changes
