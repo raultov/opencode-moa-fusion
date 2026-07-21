@@ -122,6 +122,41 @@ Each worker session runs as a child of the primary agent, but **workers are sand
 - **`moa_fusion` is always forced off inside workers** to prevent recursion, even if you accidentally list it.
 - To expose knot MCP tools to workers, list them explicitly: `["read", "glob", "grep", "knot-mcp_search_hybrid_context", "knot-mcp_find_callers"]`.
 
+### Full example: custom `timeoutMs`, `agent`, and `workerTools`
+
+You can combine any of the plugin options in a single `opencode.json` block. The example below runs two workers under a `code-reviewer` agent profile, gives each worker up to 3 minutes, and exposes knot MCP tools in addition to the read-only defaults:
+
+```json
+{
+  "plugin": [
+    [
+      "opencode-moa-fusion@1.3.10",
+      {
+        "workers": [
+          "openai/gpt-4o-mini",
+          "anthropic/claude-3-5-haiku-latest"
+        ],
+        "timeoutMs": 180000,
+        "agent": "code-reviewer",
+        "workerTools": [
+          "read",
+          "glob",
+          "grep",
+          "knot-mcp_search_hybrid_context",
+          "knot-mcp_find_callers"
+        ]
+      }
+    ]
+  ]
+}
+```
+
+- `timeoutMs: 180000` — each worker gets 3 minutes instead of the 5-minute default. Increase it for slow / large-context models, or lower it to fail fast.
+- `agent: "code-reviewer"` — every worker session is created with this agent profile. The profile must be declared under the top-level `agent` key in the same `opencode.json`. This setting is fixed at startup and cannot be changed per-call from the orchestrator.
+- `workerTools: [...]` — explicit allowlist. Anything not listed (including `bash`, `write`, `edit`, `webfetch`, `patch`, `todowrite`) is denied, even if those tools exist elsewhere in OpenCode.
+
+> **Tip:** to reduce the noise in this example for a quick smoke-test, drop `agent` (the plugin will fall back to `general`) and keep `workerTools: ["read", "glob", "grep"]`.
+
 ### ⚠️ Always pin a specific version — do not use `@latest`
 
 **Recommended:** always register the plugin with a fully qualified version (e.g. `opencode-moa-fusion@1.2.5`), **never** `opencode-moa-fusion@latest` or the bare name. Two concrete reasons:

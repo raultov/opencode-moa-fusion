@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.10] - 2026-07-21
+
+### Added
+
+- **README — combined configuration example**: a new section in
+  `README.md` (`Full example: custom timeoutMs, agent, and workerTools`) shows a
+  complete `opencode.json` plugin block wiring `workers`, `timeoutMs`, `agent`,
+  and `workerTools` (including the `knot-mcp_*` MCP tools) at the same time,
+  so users can copy-paste a known-good configuration instead of stitching
+  together the four separate snippets that previously existed.
+
+### Changed
+
+- **README example version bumped**: the new combined example uses
+  `opencode-moa-fusion@1.3.10` as its pinned version, matching the README's
+  own "always pin" recommendation.
+
 ## [1.3.9] - 2026-06-28
 
 ### Added
@@ -361,6 +378,7 @@ ANTHROPIC_API_KEY=x npx opencode-moa-fusion@latest
 - Mixture-of-Agents plugin for OpenCode: fans out prompts to multiple worker
   models in parallel and synthesizes a unified answer.
 
+[1.3.10]: https://github.com/raultov/opencode-moa-fusion/compare/v1.3.9...v1.3.10
 [1.2.7]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/raultov/opencode-moa-fusion/compare/v1.2.4...v1.2.5
