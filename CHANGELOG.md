@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-10
+
+### Fixed
+
+- **opencode V2: `moa_fusion` failed on a clean install** with `Tool result declared output without an output schema`. The V2 host rejects any tool result that carries `output` unless the tool registered an output schema; the tool now declares `output: { type: "string" }`.
+- **opencode V2: configured workers were reported as `Unknown model`.** The host's `provider.list()` returns `Provider.Info` rows without a `models` map, so the model catalogue was always empty. `listProviders` now merges `provider.list()` with `model.list()` and tolerates either one failing (or `ctx.model` being absent).
+
+### Tests
+
+- `tests/v2.spec.ts` mocks the real host shape (providers without `models`, models only in `model.list()`) and asserts the output schema. The previous mock returned `models` from `provider.list()`, which hid both bugs.
+
 ## [1.4.0] - 2026-10-10
 
 ### Added

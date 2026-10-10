@@ -6,6 +6,7 @@ type ToolInfo = {
   name: string;
   description: string;
   input: unknown;
+  output?: unknown;
   execute: (
     args: unknown,
     ctx: {
@@ -50,10 +51,22 @@ function makeHarness(options: Record<string, unknown>) {
     ],
   };
 
+  // Mirrors the real V2 host (2.0.26): `Provider.Info` carries no `models`, so
+  // the model catalogue only comes from `model.list()` (`Model.Info` rows).
   const provider = {
     list: async () => ({
       location: { directory: "/mock" },
-      data: [{ id: "openai", models: { "gpt-4o-mini": {}, "gpt-4o": {} } }],
+      data: [{ id: "openai", name: "OpenAI", activation: "auto", package: "" }],
+    }),
+  };
+
+  const model = {
+    list: async () => ({
+      location: { directory: "/mock" },
+      data: [
+        { id: "gpt-4o-mini", providerID: "openai" },
+        { id: "gpt-4o", providerID: "openai" },
+      ],
     }),
   };
 
@@ -70,6 +83,7 @@ function makeHarness(options: Record<string, unknown>) {
     },
     session,
     provider,
+    model,
   };
 
   const toolCtx = (sessionID: string) => ({
@@ -96,6 +110,11 @@ describe("MoaFusionPluginV2 [Component]", () => {
     expect(tool.name).toBe("moa_fusion");
     expect(tool.description).toContain("Mixture-of-Agents");
     expect(tool.input).toBeTruthy();
+  });
+
+  it("Given setup When transformed Then declares a string output schema (the V2 host rejects results with `output` otherwise)", async () => {
+    const { tool } = await setupTool({ workers: ["openai/gpt-4o-mini"] });
+    expect(tool.output).toEqual({ type: "string" });
   });
 
   it("Given two workers When executed Then fans out and returns labelled outputs with synthesis instructions", async () => {
@@ -159,5 +178,68 @@ describe("MoaFusionPluginV2 [Component]", () => {
     expect(result.output).toContain("## Worker 2 — openai/gpt-4o");
     expect(result.output).toContain("[error]");
     expect(result.metadata.partial).toBe(true);
+  });
+
+  it("Given a model only present in model.list When executed Then it resolves as a known worker", async () => {
+    const { tool, toolCtx, ctx, state } = await setupTool({ workers: ["google/antigravity-x"] });
+    (ctx.model as { list: unknown }).list = async () => ({
+      data: [{ id: "antigravity-x", providerID: "google" }],
+    });
+
+    const result = await tool.execute({ prompt: "do it" }, toolCtx("ses_main"));
+
+    expect(result.metadata.partial).toBe(false);
+    expect(result.output).toContain("google/antigravity-x");
+    expect(state.createCalls).toHaveLength(1);
+  });
+
+  it("Given model.list fails When executed Then it falls back to the provider catalogue", async () => {
+    const { tool, toolCtx, ctx } = await setupTool({ workers: ["openai/gpt-4o"] });
+    (ctx.model as { list: unknown }).list = async () => {
+      throw new Error("model.list unavailable");
+    };
+    (ctx.provider as { list: unknown }).list = async () => ({
+      data: [{ id: "openai", models: { "gpt-4o": {} } }],
+    });
+
+    const result = await tool.execute({ prompt: "do it" }, toolCtx("ses_main"));
+
+    expect(result.metadata.partial).toBe(false);
+    expect(result.output).toContain("openai/gpt-4o");
+  });
+
+  it("Given provider.list fails When executed Then models from model.list still resolve", async () => {
+    const { tool, toolCtx, ctx } = await setupTool({ workers: ["openai/gpt-4o"] });
+    (ctx.provider as { list: unknown }).list = async () => {
+      throw new Error("provider.list unavailable");
+    };
+
+    const result = await tool.execute({ prompt: "do it" }, toolCtx("ses_main"));
+
+    expect(result.metadata.partial).toBe(false);
+    expect(result.output).toContain("openai/gpt-4o");
+  });
+
+  it("Given the host exposes no ctx.model When executed Then it keeps working from provider.list", async () => {
+    const { tool, toolCtx, ctx } = await setupTool({ workers: ["openai/gpt-4o"] });
+    delete (ctx as { model?: unknown }).model;
+    (ctx.provider as { list: unknown }).list = async () => ({
+      data: [{ id: "openai", models: { "gpt-4o": {} } }],
+    });
+
+    const result = await tool.execute({ prompt: "do it" }, toolCtx("ses_main"));
+
+    expect(result.metadata.partial).toBe(false);
+    expect(result.output).toContain("openai/gpt-4o");
+  });
+
+  it("Given a model absent from both catalogues When executed Then it is reported as unknown", async () => {
+    const { tool, toolCtx, ctx } = await setupTool({ workers: ["google/ghost"] });
+    (ctx.model as { list: unknown }).list = async () => ({ data: [] });
+
+    const result = await tool.execute({ prompt: "do it" }, toolCtx("ses_main"));
+
+    expect(result.metadata.partial).toBe(true);
+    expect(result.output).toContain("Unknown model: google/ghost");
   });
 });

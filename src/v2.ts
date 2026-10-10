@@ -58,13 +58,44 @@ export function createMoaFusionV2(): Plugin {
           name: "moa_fusion",
           description: TOOL_DESCRIPTION,
           input: ARGS_JSON_SCHEMA,
+          output: { type: "string" },
           execute: async (args, toolCtx) => {
             if (workerSessions.has(String(toolCtx.sessionID))) {
               return { output: WORKER_REFUSAL, metadata: { partial: true } };
             }
             return runMoaFusion(args as MoaArgs, options, {
               runWorker: createV2WorkerRunner(ctx.session, workerSessions),
-              listProviders: async () => (await ctx.provider.list()).data ?? [],
+              listProviders: async () => {
+                const [providersRes, modelsRes] = await Promise.all([
+                  ctx.provider?.list
+                    ? ctx.provider.list().catch(() => ({ data: [] }))
+                    : Promise.resolve({ data: [] }),
+                  ctx.model?.list
+                    ? ctx.model.list().catch(() => ({ data: [] }))
+                    : Promise.resolve({ data: [] }),
+                ]);
+                const providers =
+                  (
+                    providersRes as {
+                      data?: Array<{ id: string; models?: Record<string, unknown> }>;
+                    }
+                  )?.data ?? [];
+                const map = new Map<string, { id: string; models: Record<string, unknown> }>();
+                for (const p of providers) {
+                  map.set(p.id, { id: p.id, models: { ...(p.models || {}) } });
+                }
+                const models =
+                  (modelsRes as { data?: Array<{ id: string; providerID: string }> })?.data ?? [];
+                for (const m of models) {
+                  let p = map.get(m.providerID);
+                  if (!p) {
+                    p = { id: m.providerID, models: {} };
+                    map.set(m.providerID, p);
+                  }
+                  p.models[m.id] = {};
+                }
+                return [...map.values()];
+              },
               sessionID: String(toolCtx.sessionID),
               abort: toolCtx.signal,
               notify: async (title) => {
