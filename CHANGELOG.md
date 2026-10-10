@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-10
+
+### Added
+
+- **opencode V2 support**: the package now ships a dual entrypoint, so one version works on both opencode generations. opencode V2 reads the default export as a plugin definition (`id` + `setup`) and registers the `moa_fusion` tool through the native `tool.transform` editor; opencode V1 (1.18.29 and newer) reads it as a `PluginModule` and calls `server` with the classic `(input, options)` signature. Both implementations share `src/core.ts`, so the fan-out, role resolution and output format cannot drift between generations. The bundle stays fully self-contained (only `node:` builtins), so neither host needs the other generation's SDK at runtime.
+- **V2 worker transport** (`src/callModelV2.ts`): workers run as child sessions through `ctx.session` (`create` → `prompt` → `wait` → `context`), navigable in the TUI like on V1.
+
+### Changed
+
+- `resolveRoles` takes a provider-catalogue lookup instead of the V1 SDK client (V1 passes `config.providers()`, V2 passes `ctx.provider.list()`).
+
+### Notes for V2 users
+
+- Worker system directive: V2 prompts have no system channel, so the read-only directive is folded into the prompt text. The XML boundary wrapping (the prompt-injection defence) is unchanged.
+- `workerTools`: V2 cannot scope tool selection per call; worker sessions run with their agent's tool set. Recursion through `moa_fusion` is refused inside worker sessions (V1 disables the tool per prompt instead).
+
+### Compatibility
+
+- opencode V1 releases older than 1.18.29 cannot load an object entrypoint: stay on `opencode-moa-fusion@1.3.x` there.
 ## [1.3.10] - 2026-07-21
 
 ### Added

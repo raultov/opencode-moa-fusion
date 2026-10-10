@@ -5,11 +5,14 @@ import { makeMockClient } from "./_fixtures/mockClient.js";
 
 describe("resolveRoles [Component]", () => {
   const client = makeMockClient();
+  const listProviders = async () => (await client.config.providers()).data?.providers ?? [];
+  const providersOf = (c: ReturnType<typeof makeMockClient>) => async () =>
+    (await c.config.providers()).data?.providers ?? [];
   const validWorkers = ["openai/gpt-4o-mini"];
 
   describe("Scenario: explicit args.workers", () => {
     it("Given explicit workers in args When resolveRoles is called Then returns { source: 'args' } and validated roles", async () => {
-      const res = await resolveRoles({ workers: validWorkers }, {}, client);
+      const res = await resolveRoles({ workers: validWorkers }, {}, listProviders);
       expect(res.source).toBe("args");
       expect(res.workers).toEqual([{ providerID: "openai", modelID: "gpt-4o-mini" }]);
     });
@@ -17,7 +20,7 @@ describe("resolveRoles [Component]", () => {
 
   describe("Scenario: options.workers and no args", () => {
     it("Given options When resolveRoles is called Then returns { source: 'options' }", async () => {
-      const res = await resolveRoles({}, { workers: validWorkers }, client);
+      const res = await resolveRoles({}, { workers: validWorkers }, listProviders);
       expect(res.source).toBe("options");
     });
   });
@@ -26,7 +29,7 @@ describe("resolveRoles [Component]", () => {
     it("Given no config When resolveRoles is called Then throws MISSING_ROLES with instructions", async () => {
       let err: unknown;
       try {
-        await resolveRoles({}, {}, client);
+        await resolveRoles({}, {}, listProviders);
       } catch (e) {
         err = e;
       }
@@ -40,7 +43,7 @@ describe("resolveRoles [Component]", () => {
     it("Given unknown model When resolveRoles is called Then throws UNKNOWN_MODEL", async () => {
       let err: unknown;
       try {
-        await resolveRoles({ workers: ["openai/gpt-999"] }, {}, client);
+        await resolveRoles({ workers: ["openai/gpt-999"] }, {}, listProviders);
       } catch (e) {
         err = e;
       }
@@ -54,7 +57,7 @@ describe("resolveRoles [Component]", () => {
     it("Given bad shape When resolveRoles is called Then throws INVALID_REF", async () => {
       let err: unknown;
       try {
-        await resolveRoles({ workers: ["bad-shape"] }, {}, client);
+        await resolveRoles({ workers: ["bad-shape"] }, {}, listProviders);
       } catch (e) {
         err = e;
       }
@@ -67,7 +70,7 @@ describe("resolveRoles [Component]", () => {
     it("Given empty workers When resolveRoles is called Then throws MISSING_ROLES", async () => {
       let err: unknown;
       try {
-        await resolveRoles({ workers: [] }, {}, client);
+        await resolveRoles({ workers: [] }, {}, listProviders);
       } catch (e) {
         err = e;
       }
@@ -81,7 +84,7 @@ describe("resolveRoles [Component]", () => {
       const res = await resolveRoles(
         { workers: ["openai/gpt-4o-mini", "openai/gpt-4o-mini", "anthropic/claude-3-5-sonnet"] },
         {},
-        client,
+        listProviders,
       );
       expect(res.workers).toHaveLength(2);
       expect(res.workers.map((w) => `${w.providerID}/${w.modelID}`)).toEqual([
@@ -94,7 +97,7 @@ describe("resolveRoles [Component]", () => {
       const res = await resolveRoles(
         { workers: ["openai/gpt-4o-mini", "openai/gpt-4o-mini"] },
         {},
-        client,
+        listProviders,
       );
       expect(res.workers).toHaveLength(1);
       expect(res.workers[0]).toEqual({ providerID: "openai", modelID: "gpt-4o-mini" });
@@ -156,7 +159,7 @@ describe("resolveRoles [Component]", () => {
       const workers = ["p/m1", "p/m2", "p/m3", "p/m4", "p/m5", "p/m6", "p/m7", "p/m8", "p/m9"];
       let err: unknown;
       try {
-        await resolveRoles({}, { workers }, manyModelsClient);
+        await resolveRoles({}, { workers }, providersOf(manyModelsClient));
       } catch (e) {
         err = e;
       }
@@ -187,7 +190,7 @@ describe("resolveRoles [Component]", () => {
         }),
       });
       const workers = ["p/m1", "p/m2", "p/m3", "p/m4", "p/m5", "p/m6", "p/m7", "p/m8"];
-      const res = await resolveRoles({}, { workers }, eightModelsClient);
+      const res = await resolveRoles({}, { workers }, providersOf(eightModelsClient));
       expect(res.workers).toHaveLength(8);
     });
   });

@@ -420,10 +420,10 @@ describe("tool [Component]", () => {
   });
 
   describe("Scenario: Plugin entry (default export)", () => {
-    it("Given importing default When invoked as Plugin Then returns Hooks with tool.moa_fusion", async () => {
+    it("Given importing default When invoked via server (V1) Then returns Hooks with tool.moa_fusion", async () => {
       const plugin = (await import("../src/index.js")).default;
       const client: OpencodeClient = getClientWithModels();
-      const hooks = await plugin({
+      const hooks = await plugin.server({
         client,
         project: {} as never,
         directory: "/mock",
@@ -436,6 +436,12 @@ describe("tool [Component]", () => {
       expect(hooks.tool).toBeDefined();
       expect(hooks.tool?.moa_fusion).toBeDefined();
       expect(hooks.tool?.moa_fusion?.description).toBeTruthy();
+    });
+
+    it("Given importing default When inspected as V2 definition Then exposes id and setup", async () => {
+      const plugin = (await import("../src/index.js")).default;
+      expect(plugin.id).toBeTruthy();
+      expect(typeof plugin.setup).toBe("function");
     });
   });
 });

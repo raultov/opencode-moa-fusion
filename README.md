@@ -49,9 +49,9 @@ Running `npx opencode-moa-fusion@<version>` pins the installer version, and that
 ### Manual runtime installation
 
 ```bash
-npm install -g opencode-moa-fusion@1.3.5
+npm install -g opencode-moa-fusion@1.4.0
 # or
-bun add -g opencode-moa-fusion@1.3.5
+bun add -g opencode-moa-fusion@1.4.0
 ```
 
 ### Installation issues in corporate environments
@@ -75,7 +75,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 {
   "plugin": [
     [
-      "opencode-moa-fusion@1.2.5",
+      "opencode-moa-fusion@1.4.0",
       {
         "workers": [
           "openai/gpt-4o-mini",
@@ -88,6 +88,40 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 ```
 
 > **Note:** The `workers` specified in `opencode.json` act as defaults. The primary agent can override these at runtime by passing arguments to the tool.
+
+### opencode V2 (key `plugins`)
+
+One package works on both opencode generations (V1 1.18.29+ and V2). On V2 the
+entry goes in the native `plugins` key:
+
+```json
+{
+  "plugins": [
+    {
+      "package": "opencode-moa-fusion@1.4.0",
+      "options": {
+        "workers": [
+          "openai/gpt-4o-mini",
+          "anthropic/claude-3-5-haiku-latest"
+        ]
+      }
+    }
+  ]
+}
+```
+
+V2 notes:
+
+- Workers run as child sessions through `ctx.session`, navigable in the TUI
+  like on V1.
+- The read-only system directive is folded into the prompt text (V2 prompts
+  carry no system channel). The XML boundary wrapping, the actual
+  prompt-injection defence, is unchanged.
+- `workerTools` cannot be scoped per call on V2: workers run with their agent's
+  tool set. A `moa_fusion` call made from inside a worker session is refused
+  (V1 disables the tool per prompt instead).
+- opencode V1 older than 1.18.29 cannot load the object entrypoint: stay on
+  `opencode-moa-fusion@1.3.x` there.
 
 ### Plugin options
 

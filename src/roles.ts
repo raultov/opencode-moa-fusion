@@ -1,6 +1,10 @@
-import type { OpencodeClient, Provider } from "@opencode-ai/sdk";
 import { parseModelRef } from "./parseModelRef.js";
-import { type ModelRef, type ResolvedRoles, RoleResolutionError } from "./types.js";
+import {
+  type ModelRef,
+  type ProviderLike,
+  type ResolvedRoles,
+  RoleResolutionError,
+} from "./types.js";
 
 type Args = { workers?: string[]; timeoutMs?: number };
 type Options = { workers?: unknown; timeoutMs?: unknown; agent?: unknown };
@@ -31,10 +35,15 @@ export function resolveAgent(options: Options, fallback = "general"): string {
   return fallback;
 }
 
+/**
+ * Resolve and validate the worker list. The provider catalogue comes in as a
+ * lookup so this resolver stays generation agnostic: V1 passes the SDK
+ * `config.providers()` result, V2 passes `ctx.provider.list()`.
+ */
 export async function resolveRoles(
   args: Args,
   options: Options,
-  client: OpencodeClient,
+  listProviders: () => Promise<ProviderLike[]>,
 ): Promise<ResolvedRoles> {
   let workersRaw: string[] | undefined;
   let source: "args" | "options";
@@ -52,8 +61,7 @@ export async function resolveRoles(
     );
   }
 
-  const res = await client.config.providers();
-  const providers: Provider[] = res.data?.providers ?? [];
+  const providers = await listProviders();
   const knownModels = new Set<string>();
   providers.forEach((p) => {
     Object.keys(p.models || {}).forEach((m) => {

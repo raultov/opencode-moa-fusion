@@ -1,5 +1,8 @@
 export type ModelRef = { providerID: string; modelID: string };
 
+/** Just enough of a provider catalogue entry for model validation. */
+export type ProviderLike = { id: string; models?: Record<string, unknown> };
+
 export type WorkerResult =
   | { ok: true; model: string; sessionID: string; output: string; elapsedMs: number }
   | { ok: false; model: string; sessionID?: string; error: string; elapsedMs: number };

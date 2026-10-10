@@ -1,7 +1,11 @@
 import type { AssistantMessage, OpencodeClient, Part } from "@opencode-ai/sdk";
+import { READ_ONLY_DIRECTIVE, type WorkerCall, wrapUserPrompt } from "./core.js";
 import { partsToText } from "./extract.js";
 import { sanitizeErrorMessage } from "./sanitize.js";
-import type { ModelRef, WorkerResult } from "./types.js";
+import type { WorkerResult } from "./types.js";
+
+// Re-exported for existing consumers and tests.
+export { READ_ONLY_DIRECTIVE, wrapUserPrompt } from "./core.js";
 
 type SessionCreateBody = NonNullable<Parameters<OpencodeClient["session"]["create"]>[0]>["body"];
 
@@ -16,34 +20,8 @@ type PromptResult = {
   response: Response;
 };
 
-export const READ_ONLY_DIRECTIVE = `[SYSTEM DIRECTIVE: EXTREME IMPORTANCE]
-You are a worker node in a Mixture-of-Agents (MoA) architecture.
-Your role is strictly READ-ONLY.
-You MUST NOT attempt to modify any files, write code to disk, or execute destructive bash commands.
-If you need to analyze the codebase, use read, glob, grep, or knot tools.
-Provide your proposed solution or analysis in text format only. The orchestrator agent will handle any actual file modifications.`;
-
-/**
- * Wraps the user-supplied prompt in unambiguous XML-style boundary markers.
- * Even if the provider/model ignores the `system` channel, the worker still
- * has a clear start/end for the user payload and cannot be tricked into
- * "overriding previous instructions" by an injected payload that runs past
- * a textual delimiter.
- */
-export function wrapUserPrompt(text: string): string {
-  return `<user_prompt>\n${text}\n</user_prompt>`;
-}
-
-export type CallModelOpts = {
+export type CallModelOpts = WorkerCall & {
   client: OpencodeClient;
-  parentID: string;
-  model: ModelRef;
-  text: string;
-  system?: string;
-  agent?: string;
-  abort: AbortSignal;
-  timeoutMs: number;
-  tools?: Record<string, boolean>;
 };
 
 export async function callModel(opts: CallModelOpts): Promise<WorkerResult> {
