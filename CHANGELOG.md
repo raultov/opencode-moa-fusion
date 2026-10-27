@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-10-27
+
+### Fixed
+
+- **opencode V2: `moa_fusion` was registered behind Code Mode** instead of on the native tool list ([#3](https://github.com/raultov/opencode-moa-fusion/issues/3)). The Code Mode catalogue truncated the description (dropping the synthesis contract), and the result landed in the `execute` sandbox, where the model saw it only if its code returned it. The tool now registers with `options: { codemode: false }`, like V2's built-in `edit`, `grep` and `question` tools.
+
 ## [1.4.1] - 2026-10-10
 
 ### Fixed

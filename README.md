@@ -49,9 +49,9 @@ Running `npx opencode-moa-fusion@<version>` pins the installer version, and that
 ### Manual runtime installation
 
 ```bash
-npm install -g opencode-moa-fusion@1.4.1
+npm install -g opencode-moa-fusion@1.4.2
 # or
-bun add -g opencode-moa-fusion@1.4.1
+bun add -g opencode-moa-fusion@1.4.2
 ```
 
 ### Installation issues in corporate environments
@@ -75,7 +75,7 @@ Register the plugin in your OpenCode configuration. This can be done globally in
 {
   "plugin": [
     [
-      "opencode-moa-fusion@1.4.1",
+      "opencode-moa-fusion@1.4.2",
       {
         "workers": [
           "openai/gpt-4o-mini",
@@ -98,7 +98,7 @@ entry goes in the native `plugins` key:
 {
   "plugins": [
     {
-      "package": "opencode-moa-fusion@1.4.1",
+      "package": "opencode-moa-fusion@1.4.2",
       "options": {
         "workers": [
           "openai/gpt-4o-mini",
@@ -112,6 +112,9 @@ entry goes in the native `plugins` key:
 
 V2 notes:
 
+- `moa_fusion` is registered with `codemode: false`, so it stays on the
+  model's native tool list (called directly, like on V1) instead of behind
+  Code Mode's `execute` tool.
 - Workers run as child sessions through `ctx.session`, navigable in the TUI
   like on V1.
 - The read-only system directive is folded into the prompt text (V2 prompts

@@ -7,6 +7,7 @@ type ToolInfo = {
   description: string;
   input: unknown;
   output?: unknown;
+  options?: { codemode?: boolean };
   execute: (
     args: unknown,
     ctx: {
@@ -115,6 +116,11 @@ describe("MoaFusionPluginV2 [Component]", () => {
   it("Given setup When transformed Then declares a string output schema (the V2 host rejects results with `output` otherwise)", async () => {
     const { tool } = await setupTool({ workers: ["openai/gpt-4o-mini"] });
     expect(tool.output).toEqual({ type: "string" });
+  });
+
+  it("Given setup When transformed Then opts out of Code Mode so the tool stays on the native tool list", async () => {
+    const { tool } = await setupTool({ workers: ["openai/gpt-4o-mini"] });
+    expect(tool.options?.codemode).toBe(false);
   });
 
   it("Given two workers When executed Then fans out and returns labelled outputs with synthesis instructions", async () => {

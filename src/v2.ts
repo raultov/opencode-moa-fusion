@@ -56,6 +56,9 @@ export function createMoaFusionV2(): Plugin {
       ctx.tool.transform((editor) => {
         editor.add({
           name: "moa_fusion",
+          // Stay on the native tool list: behind Code Mode the description is
+          // truncated and the synthesis instructions land in the sandbox.
+          options: { codemode: false },
           description: TOOL_DESCRIPTION,
           input: ARGS_JSON_SCHEMA,
           output: { type: "string" },
